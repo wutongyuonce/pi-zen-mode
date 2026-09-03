@@ -198,6 +198,10 @@ export default function zenMode(pi: ExtensionAPI) {
   const collectors: RunCollector[] = [];
   let busy = false;
   let presentedCollector: RunCollector | undefined;
+  // toolCallIds Pi actually started during the current busy epoch (from
+  // tool_execution_start events) — collection is event-driven so re-renders
+  // of older rows are never counted.
+  const activeToolIds = new Set<string>();
 
   let activeTui: TUI | undefined;
   let activeTheme: Theme | undefined;
@@ -582,10 +586,15 @@ export default function zenMode(pi: ExtensionAPI) {
           }
           return toolPlaceholderLines(this);
         } else if (busy) {
-          // Brand-new tool row during the run: collect once, show nothing.
           const info = this as unknown as ToolInternals;
-          capture("tool", this, `t:${info.toolCallId ?? info.toolName}`);
-          return [];
+          const key = info.toolCallId ?? info.toolName;
+          if (key && activeToolIds.has(key)) {
+            // A tool Pi actually started during this run: hide + collect once.
+            capture("tool", this, `t:${key}`);
+            return [];
+          }
+          // Otherwise this is a legacy / pre-zen row that Pi re-rendered
+          // while a new run streams — keep it visible as-is, never count it.
         }
       }
       return originalToolRender.call(this, width);
@@ -612,6 +621,7 @@ export default function zenMode(pi: ExtensionAPI) {
     busy = false;
     const col = collector;
     collector = undefined;
+    activeToolIds.clear();
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
 
@@ -637,6 +647,7 @@ export default function zenMode(pi: ExtensionAPI) {
     if (presentedCollector) seen.add(presentedCollector);
     collector = undefined;
     busy = false;
+    activeToolIds.clear();
     presentedCollector = undefined;
     collectors.length = 0;
     if (deferTimer) clearTimeout(deferTimer);
@@ -699,6 +710,7 @@ export default function zenMode(pi: ExtensionAPI) {
     collector = undefined;
     collectors.length = 0;
     presentedCollector = undefined;
+    activeToolIds.clear();
   }
 
 
@@ -988,6 +1000,17 @@ export default function zenMode(pi: ExtensionAPI) {
     if (msg.stopReason === "aborted" || msg.stopReason === "error") {
       scheduleDeferredFinalize();
     }
+  });
+
+  // Tool rows are collected from execution events, not from render() calls:
+  // Pi re-renders older rows while a new run streams and those rows are not
+  // part of this run.
+  pi.on("tool_execution_start", async (_event, ctx) => {
+    if (!config.enabled || !busy) return;
+    activeCtx = ctx;
+    const evt = _event as { toolCallId?: string; toolName?: string };
+    const id = evt.toolCallId ?? evt.toolName;
+    if (id) activeToolIds.add(id);
   });
 
   pi.on("tool_execution_end", async (_event, ctx) => {
