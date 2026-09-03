@@ -43,10 +43,13 @@ Update with `pi update --extensions`.
 | Key | Action |
 | --- | --- |
 | `ctrl+alt+f` | Toggle zen focus mode |
-| `ctrl+alt+r` | Reveal / collapse the last run's hidden process |
+| `ctrl+alt+r` | Reveal / collapse the **latest** run's hidden process |
+| `ctrl+alt+s` | Open a picker to reveal / collapse **any** collapsed run |
 | `/zen` | Open the settings panel (same style as `/tools`) |
 
 `ctrl+o` (Pi built-in) still expands a single tool's full output.
+
+> After a **compaction** (auto or `/compact`) or a branch switch, runs before that point no longer have live components — their full process was replaced by the summary — so those collapsed runs can't be expanded; the picker only lists runs collapsed afterwards.
 
 ## Configuration
 
@@ -59,7 +62,8 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
   "hideTools": true,
   "hideInterimText": true,
   "toggleKey": "ctrl+alt+f",
-  "revealKey": "ctrl+alt+r"
+  "revealKey": "ctrl+alt+r",
+  "pickerKey": "ctrl+alt+s"
 }
 ```
 
@@ -69,7 +73,7 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
 | `hideThinking` | Collapse thinking blocks to a one-line `💭` after the run; `false` renders them in full |
 | `hideTools` | Collapse tool calls to a one-line `⚙`; `false` uses the built-in full rendering |
 | `hideInterimText` | Collapse interim replies (non-final text); `false` renders them in full |
-| `toggleKey` / `revealKey` | Shortcut keys — any valid Pi keybinding string |
+| `toggleKey` / `revealKey` / `pickerKey` | The three shortcuts — any valid Pi keybinding string |
 
 The three sub-toggles only affect **presentation after the run**; hiding *while* running is controlled by `enabled`. `/reload` after changes.
 

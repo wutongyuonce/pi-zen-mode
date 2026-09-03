@@ -18,13 +18,14 @@
  * - The "reveal" view calls the captured original renderer, so whichever
  *   inner pipeline is installed decides the expanded appearance.
  *
- * Toggles (keys configurable via zen-mode.json "toggleKey"/"revealKey"):
+ * Toggles (keys configurable via zen-mode.json "toggleKey"/"revealKey"/"pickerKey"):
  *   ctrl+alt+f  master on/off (persisted to ~/.pi/agent/zen-mode.json)
  *   ctrl+alt+r  reveal/collapse the last run's hidden content
+ *   ctrl+alt+s  open a picker of every collapsed run (expand any of them)
  *   /zen        settings panel (same visual style as /tools)
  *
  * Config keys (zen-mode.json): enabled, hideThinking, hideTools,
- * hideInterimText, toggleKey, revealKey.
+ * hideInterimText, toggleKey, revealKey, pickerKey.
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -61,6 +62,7 @@ interface ZenConfig {
   hideInterimText: boolean;
   toggleKey?: string;
   revealKey?: string;
+  pickerKey?: string;
 }
 
 const DEFAULT_CONFIG: ZenConfig = {
@@ -72,6 +74,7 @@ const DEFAULT_CONFIG: ZenConfig = {
 
 const DEFAULT_TOGGLE_KEY = "ctrl+alt+f";
 const DEFAULT_REVEAL_KEY = "ctrl+alt+r";
+const DEFAULT_PICKER_KEY = "ctrl+alt+s";
 
 function normalizeKey(value: string | undefined, fallback: string): string {
   if (!value) return fallback;
@@ -160,6 +163,7 @@ export default function zenMode(pi: ExtensionAPI) {
   let config: ZenConfig = loadConfig();
   const toggleKey = normalizeKey(config.toggleKey, DEFAULT_TOGGLE_KEY);
   const revealKey = normalizeKey(config.revealKey, DEFAULT_REVEAL_KEY);
+  const pickerKey = normalizeKey(config.pickerKey, DEFAULT_PICKER_KEY);
   type KeyIdParam = Parameters<typeof pi.registerShortcut>[0];
 
   const assistantProto = AssistantMessageComponent.prototype as unknown as {
@@ -591,7 +595,29 @@ export default function zenMode(pi: ExtensionAPI) {
     void ctx;
   }
 
-  /* ---------------- reveal toggle ---------------- */
+  /* ---------------- per-run reveal ---------------- */
+
+  function reCollapseCollector(col: RunCollector) {
+    for (const entry of col.comps) {
+      if (entry.kind === "assistant") {
+        presentAssistant(
+          entry.component as AssistantMessageComponent,
+          col,
+          col.comps.indexOf(entry),
+        );
+      } else {
+        safeInvalidate(entry.component as ToolExecutionComponent);
+      }
+    }
+    addCollapseFooter(col);
+  }
+
+  function setRunRevealed(col: RunCollector, on: boolean) {
+    revealed.set(col, on);
+    if (on) revealCollector(col);
+    else reCollapseCollector(col);
+    activeTui?.requestRender(true);
+  }
 
   function toggleReveal() {
     const col = presentedCollector;
@@ -599,27 +625,18 @@ export default function zenMode(pi: ExtensionAPI) {
       activeCtx?.ui.notify("zen · 暂无已折叠内容");
       return;
     }
-    const next = !(revealed.get(col) ?? false);
-    revealed.set(col, next);
-    if (next) {
-      revealCollector(col);
-    } else {
-      // re-collapse: re-present placeholders (keeps finalTextIndex)
-      for (const entry of col.comps) {
-        if (entry.kind === "assistant") {
-          presentAssistant(
-            entry.component as AssistantMessageComponent,
-            col,
-            col.comps.indexOf(entry),
-          );
-        } else {
-          safeInvalidate(entry.component as ToolExecutionComponent);
-        }
-      }
-      addCollapseFooter(col);
-      activeTui?.requestRender(true);
-    }
+    setRunRevealed(col, !(revealed.get(col) ?? false));
   }
+
+  /** Compaction / branch switches rebuild the transcript: earlier runs'
+   * components are gone, so their collapsed content can no longer be shown.
+   * Drop the history so the picker never offers unexpandable runs. */
+  function pruneZenHistory() {
+    collector = undefined;
+    collectors.length = 0;
+    presentedCollector = undefined;
+  }
+
 
   /* ---------------- patch install / restore ---------------- */
 
@@ -753,6 +770,78 @@ export default function zenMode(pi: ExtensionAPI) {
     });
   }
 
+  /* ---------------- run picker (choose which collapsed run) ---------------- */
+
+  function runLabel(col: RunCollector, ordinal: number): string {
+    const counts = collapseSummary(col);
+    const parts: string[] = [];
+    if (counts.tools > 0) parts.push(`${counts.tools} 工具`);
+    if (counts.thinking > 0) parts.push(`${counts.thinking} 思考`);
+    if (counts.interim > 0) parts.push(`${counts.interim} 回复`);
+    const detail = parts.length > 0 ? parts.join(" / ") : "过程";
+    const secs = Math.max(0, Math.round((Date.now() - col.startedAt) / 1000));
+    const when = secs < 90 ? `${secs}s 前` : `${Math.round(secs / 60)}m 前`;
+    return `#${ordinal} · ${when} · ${detail}`;
+  }
+
+  async function openRunPicker(ctx: ExtensionContext) {
+    if (ctx.mode !== "tui") {
+      ctx.ui.notify("zen · 展开面板需要 TUI 模式", "error");
+      return;
+    }
+    const total = collectors.length;
+    if (total === 0) {
+      ctx.ui.notify("zen · 暂无已折叠的轮次");
+      return;
+    }
+    await ctx.ui.custom((tui, theme, _kb, done) => {
+      const container = new Container();
+      container.addChild(
+        new (class {
+          render(_width: number) {
+            return [
+              theme.fg("accent", theme.bold("zen · 展开哪一轮?")),
+              theme.fg("muted", `${total} 轮已折叠 · ↑↓ 选择 · Enter 展开/收起 · Esc 关闭`),
+              "",
+            ];
+          }
+          invalidate() {}
+        })(),
+      );
+      const items: SettingItem[] = collectors.map((col, index) => ({
+        id: `zen-run-${index}`,
+        label: runLabel(col, total - index),
+        currentValue: revealed.get(col) ? "展开" : "收起",
+        values: ["收起", "展开"],
+      }));
+      const settingsList = new SettingsList(
+        items,
+        Math.min(items.length + 3, 12),
+        getSettingsListTheme(),
+        (id, newValue) => {
+          const index = Number(id.replace("zen-run-", ""));
+          const col = collectors[index];
+          if (col) setRunRevealed(col, newValue === "展开");
+          tui.requestRender();
+        },
+        () => done(undefined),
+      );
+      container.addChild(settingsList);
+      return {
+        render(width: number) {
+          return container.render(width);
+        },
+        invalidate() {
+          container.invalidate();
+        },
+        handleInput(data: string) {
+          settingsList.handleInput?.(data);
+          tui.requestRender();
+        },
+      };
+    });
+  }
+
   /* ---------------- pi wiring ---------------- */
 
   pi.on("session_start", (_event, ctx) => {
@@ -787,6 +876,16 @@ export default function zenMode(pi: ExtensionAPI) {
     if (ctx.mode !== "tui") return;
     activeCtx = ctx;
     activeTheme = ctx.ui.theme;
+    // Branch switches rebuild the transcript; earlier collapsed runs no
+    // longer have live components to reveal.
+    pruneZenHistory();
+  });
+
+  // Compaction replaces earlier messages with a summary entry, so collapsed
+  // runs before the compact point can no longer be expanded — drop that
+  // history and keep only runs collapsed after the compaction.
+  pi.on("session_compact", async () => {
+    pruneZenHistory();
   });
 
   pi.on("session_shutdown", (_event, ctx) => {
@@ -860,6 +959,14 @@ export default function zenMode(pi: ExtensionAPI) {
     handler: async (ctx) => {
       activeCtx = ctx;
       toggleReveal();
+    },
+  });
+
+  pi.registerShortcut(pickerKey as KeyIdParam, {
+    description: "Choose a collapsed zen run to expand/collapse",
+    handler: async (ctx) => {
+      activeCtx = ctx;
+      await openRunPicker(ctx);
     },
   });
 }

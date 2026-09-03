@@ -44,10 +44,13 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | 按键 | 作用 |
 | --- | --- |
 | `ctrl+alt+f` | 开关 zen 专注模式 |
-| `ctrl+alt+r` | 展开 / 收起最近一轮被折叠的过程 |
+| `ctrl+alt+r` | 展开 / 收起**最近一轮**被折叠的过程 |
+| `ctrl+alt+s` | 弹出选择框,可展开 / 收起**任意一轮**已折叠的对话 |
 | `/zen` | 打开设置面板(风格与 `/tools` 一致) |
 
 `ctrl+o`（pi 原生）仍可单独展开某个工具的完整输出。
+
+> 发生 **compact**（自动或 `/compact`）或切换分支后,compact / 切换之前轮次的完整过程已被摘要替换、组件已不存在,那些折叠轮无法再展开——选择框只保留其后产生的折叠轮。
 
 ## 配置
 
@@ -60,7 +63,8 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
   "hideTools": true,
   "hideInterimText": true,
   "toggleKey": "ctrl+alt+f",
-  "revealKey": "ctrl+alt+r"
+  "revealKey": "ctrl+alt+r",
+  "pickerKey": "ctrl+alt+s"
 }
 ```
 
@@ -70,7 +74,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | `hideThinking` | 结束后思考块折成一行 `💭`;`false` 则全文显示 |
 | `hideTools` | 结束后工具调用折成一行 `⚙`;`false` 则原生完整渲染 |
 | `hideInterimText` | 结束后的中间回复(非最终答案)折成一行;`false` 则全文显示 |
-| `toggleKey` / `revealKey` | 快捷键,任意合法的 pi 键位字符串 |
+| `toggleKey` / `revealKey` / `pickerKey` | 三个快捷键,任意合法的 pi 键位字符串 |
 
 三个子开关只影响**结束后的展示**，运行中的隐藏由 `enabled` 决定。改完 `/reload` 生效。
 
