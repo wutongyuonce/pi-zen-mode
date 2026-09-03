@@ -284,7 +284,7 @@ prototype 换成 patched*
 - 需要 Pi TUI。随 `AssistantMessageComponent` / `ToolExecutionComponent` 内部字段走，大版本升级可能要跟。测过 Pi `0.84.x`。
 - 与 [pi-compact-thinking](https://github.com/nostalfinals/pi-compact-thinking) 共存：zen 关 = 不装补丁；zen 开 = 包在外面；展开 = 内层长什么样就还什么样。
 - 状态走 `setStatus`，不占用聊天区 widget 行（空 widget 只为拿到 `TUI.requestRender`）。
-- npm 包名 `pi-zen-mode`，keyword `pi-package`，可被 [pi.dev/packages](https://pi.dev/packages/pi-zen-mode) 收录。安装：`pi install git:github.com/wutongyuonce/pi-zen-mode` 或 `pi install npm:pi-zen-mode`。
+- npm 包名 `pi-zen-mode`，keyword `pi-package`，可被 [pi.dev/packages](https://pi.dev/packages/pi-zen-mode) 收录。安装：`pi install npm:pi-zen-mode`（也可 `pi install git:github.com/wutongyuonce/pi-zen-mode`）。
 
 ---
 

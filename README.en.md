@@ -30,7 +30,7 @@ Every turn in Pi floods the chat with reasoning and tool calls. **Zen-mode** hid
 ## Install
 
 ```bash
-pi install git:github.com/wutongyuonce/pi-zen-mode
+pi install npm:pi-zen-mode
 ```
 
 Then `/reload` (or restart Pi).

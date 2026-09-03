@@ -31,7 +31,7 @@
 ## 安装
 
 ```bash
-pi install git:github.com/wutongyuonce/pi-zen-mode
+pi install npm:pi-zen-mode
 ```
 
 然后 `/reload`（或重启 pi）。
