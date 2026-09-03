@@ -105,6 +105,7 @@ type ContentPart = {
 
 interface ToolInternals {
   toolName: string;
+  toolCallId: string;
   args?: Record<string, unknown>;
   result?: { isError?: boolean; content?: ContentPart[] } | null;
   expanded: boolean;
@@ -123,6 +124,9 @@ interface RunCollector {
   startedAt: number;
   lastEventAt: number;
   finalTextIndex: number;
+  // IDs of already-collected messages/tool calls, so a run is never
+  // double-counted when pi recreates a component instance.
+  seen: Set<string>;
 }
 
 type MarkdownOptions = NonNullable<ConstructorParameters<typeof Markdown>[5]>;
@@ -227,16 +231,26 @@ export default function zenMode(pi: ExtensionAPI) {
 
   function ensureCollector(): RunCollector {
     if (!collector) {
-      collector = { comps: [], startedAt: Date.now(), lastEventAt: Date.now(), finalTextIndex: -1 };
+      collector = {
+        comps: [],
+        startedAt: Date.now(),
+        lastEventAt: Date.now(),
+        finalTextIndex: -1,
+        seen: new Set(),
+      };
     }
     return collector;
   }
 
-  function capture(kind: TrackKind, component: object): RunCollector {
+  function capture(kind: TrackKind, component: object, id?: string): RunCollector {
     const col = ensureCollector();
-    if (!col.comps.some((e) => e.component === component)) {
-      col.comps.push({ kind, component });
+    if (id) {
+      if (col.seen.has(id)) return col;
+      col.seen.add(id);
+    } else if (col.comps.some((e) => e.component === component)) {
+      return col;
     }
+    col.comps.push({ kind, component });
     compCollector.set(component, col);
     col.lastEventAt = Date.now();
     return col;
@@ -483,6 +497,31 @@ export default function zenMode(pi: ExtensionAPI) {
 
   /* ---------------- patched renderers ---------------- */
 
+  function ownedByLiveRun(component: object): RunCollector | undefined {
+    const owned = compCollector.get(component) as RunCollector | undefined;
+    if (!owned) return undefined;
+    if (owned === collector) return owned;
+    if (collectors.includes(owned) || owned === presentedCollector) return owned;
+    return undefined; // pruned / detached: treat as not owned
+  }
+
+  function toolPlaceholderLines(component: ToolExecutionComponent): string[] {
+    const info = component as unknown as ToolInternals;
+    const isError = info.result?.isError === true;
+    const lines = info.result?.content
+      ? info.result.content.reduce(
+          (acc, p) =>
+            acc +
+            (p.type === "text" && p.text
+              ? p.text.split("\n").filter((l) => l.trim()).length
+              : 0),
+          0,
+        )
+      : 0;
+    const status = isError ? "failed" : lines > 0 ? `ok · ${lines} lines` : "done";
+    return [dim(`${isError ? "⚠" : "⚙"} ${info.toolName} — ${status}`)];
+  }
+
   function patchedAssistantUpdate(
     this: AssistantMessageComponent,
     message: AssistantMessage,
@@ -494,14 +533,34 @@ export default function zenMode(pi: ExtensionAPI) {
       self.isStreaming = isStreaming ?? self.isStreaming ?? false;
       assistantStates.set(this, message);
 
+      const owned = ownedByLiveRun(this);
+      if (owned && owned !== collector) {
+        // Component of an earlier (presented) run got touched again: keep
+        // that run's own presentation instead of re-collecting it.
+        const idx = owned.comps.findIndex((e) => e.component === this);
+        if (idx >= 0) {
+          if (revealed.get(owned) === true) {
+            originalAssistantUpdate.call(this, message, isStreaming);
+          } else {
+            presentAssistant(this, owned, idx);
+          }
+          return;
+        }
+      }
+
       if (!(config.enabled && busy)) {
         originalAssistantUpdate.call(this, message, isStreaming);
         return;
       }
 
-      // Zen + running: keep this component blank until the run finishes.
+      // Zen + running: keep this message blank until the run finishes. A
+      // message is collected once (by timestamp) even if pi streams many
+      // updates or rebuilds the component.
       self.contentContainer.clear();
-      capture("assistant", this);
+      const ts = message.timestamp;
+      const id =
+        typeof ts === "number" || typeof ts === "string" ? `m:${ts}` : undefined;
+      capture("assistant", this, id);
     } catch {
       originalAssistantUpdate.call(this, message, isStreaming);
     }
@@ -509,27 +568,24 @@ export default function zenMode(pi: ExtensionAPI) {
 
   function patchedToolRender(this: ToolExecutionComponent, width: number) {
     try {
+      const owned = ownedByLiveRun(this);
       if (config.enabled && config.hideTools) {
-        if (busy) {
-          capture("tool", this);
-          return [];
-        }
-        const col = compCollector.get(this);
-        if (col && revealed.get(col) !== true && !(this as unknown as ToolInternals).expanded) {
+        if (owned === collector) {
+          // Part of the run currently being hidden.
+          if (busy) return [];
+          // collector already finalized (present window) — falls through to
+          // the placeholder path below on the next render.
+        } else if (owned) {
+          // Belongs to an earlier presented run: keep its own reveal state.
+          if (revealed.get(owned) === true || (this as unknown as ToolInternals).expanded) {
+            return originalToolRender.call(this, width);
+          }
+          return toolPlaceholderLines(this);
+        } else if (busy) {
+          // Brand-new tool row during the run: collect once, show nothing.
           const info = this as unknown as ToolInternals;
-          const isError = info.result?.isError === true;
-          const lines = info.result?.content
-            ? info.result.content.reduce(
-                (acc, p) =>
-                  acc +
-                  (p.type === "text" && p.text
-                    ? p.text.split("\n").filter((l) => l.trim()).length
-                    : 0),
-                0,
-              )
-            : 0;
-          const status = isError ? "failed" : lines > 0 ? `ok · ${lines} lines` : "done";
-          return [dim(`${isError ? "⚠" : "⚙"} ${info.toolName} — ${status}`)];
+          capture("tool", this, `t:${info.toolCallId ?? info.toolName}`);
+          return [];
         }
       }
       return originalToolRender.call(this, width);
