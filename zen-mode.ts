@@ -1,13 +1,14 @@
 /**
  * zen-mode — Focus / distraction-free output for pi-tui.
  *
- * While zen is on, thinking / tools / interim replies are all collected.
- * The three hide* switches only choose visibility (and thus the footer
- * counts): unhidden categories keep their native renderer live; hidden
- * ones stay blank until the run ends, then become one-line placeholders.
- * Toggling a switch re-presents only the tracked components of each run.
- * The final answer always appears when the run finishes. ctrl+alt+r
- * restores the captured original renderer for the last run.
+ * While zen is on, thinking and tools are collected. The two hide*
+ * switches only choose visibility (and thus the footer counts): unhidden
+ * categories keep their native renderer live; hidden ones stay blank until
+ * the run ends, then become one-line placeholders. Assistant text always
+ * streams through the original renderer — interim vs final cannot be told
+ * apart, so zen does not try. Toggling a switch re-presents only the tracked
+ * components of each run. ctrl+alt+r restores the captured original
+ * renderer for the last run.
  *
  * Compatibility:
  * - Render hooks are only patched while zen logic needs them and always
@@ -26,7 +27,7 @@
  *   /zen        settings panel (same visual style as /tools)
  *
  * Config keys (zen-mode.json): enabled, hideThinking, hideTools,
- * hideInterimText, toggleKey, revealKey, pickerKey.
+ * toggleKey, revealKey, pickerKey.
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -59,7 +60,6 @@ interface ZenConfig {
   enabled: boolean;
   hideThinking: boolean;
   hideTools: boolean;
-  hideInterimText: boolean;
   toggleKey?: string;
   revealKey?: string;
   pickerKey?: string;
@@ -69,7 +69,6 @@ const DEFAULT_CONFIG: ZenConfig = {
   enabled: false,
   hideThinking: true,
   hideTools: true,
-  hideInterimText: true,
 };
 
 const DEFAULT_TOGGLE_KEY = "ctrl+alt+f";
@@ -173,9 +172,6 @@ export default function zenMode(pi: ExtensionAPI) {
   // tool_execution_start events) — collection is event-driven so re-renders
   // of older rows are never counted.
   const activeToolIds = new Set<string>();
-  // tool_execution_start minus end; while >0, hideInterim still
-  // suppresses text so "I'll call X" does not sit next to hidden tools.
-  let toolsInFlight = 0;
 
   let activeTui: TUI | undefined;
   let activeTheme: Theme | undefined;
@@ -188,7 +184,14 @@ export default function zenMode(pi: ExtensionAPI) {
     try {
       if (existsSync(configPath())) {
         const raw = JSON.parse(readFileSync(configPath(), "utf8")) as Partial<ZenConfig>;
-        return { ...DEFAULT_CONFIG, ...raw };
+        return {
+          enabled: raw.enabled ?? DEFAULT_CONFIG.enabled,
+          hideThinking: raw.hideThinking ?? DEFAULT_CONFIG.hideThinking,
+          hideTools: raw.hideTools ?? DEFAULT_CONFIG.hideTools,
+          toggleKey: raw.toggleKey,
+          revealKey: raw.revealKey,
+          pickerKey: raw.pickerKey,
+        };
       }
     } catch {
       // fall back to defaults
@@ -253,32 +256,11 @@ export default function zenMode(pi: ExtensionAPI) {
     return contentOf(m).filter((p) => p.type === "thinking" && (p.thinking ?? "").trim());
   }
 
-  function hasToolCallPart(m: AssistantMessage): boolean {
-    return contentOf(m).some((p) => p.type === "toolCall");
-  }
-
-  /** Text to show live while busy.
-   * hideInterim: paint nothing until this run has started tools AND they
-   * have all finished — pre-tool "I'll call X" never reaches the screen, so
-   * it cannot flash. The post-tool answer then streams like thinking.
-   * A no-tool turn stays blank until presentCollector (one-shot answer). */
-  function shouldStreamText(message: AssistantMessage): boolean {
-    if (!config.hideInterimText) return true;
-    if (toolsInFlight > 0) return false;
-    if (hasToolCallPart(message)) return false;
-    return activeToolIds.size > 0;
-  }
-
   function filterMessage(
     message: AssistantMessage,
     includeThinking: boolean,
-    includeText: boolean,
   ): AssistantMessage {
-    const content = contentOf(message).filter((p) => {
-      if (p.type === "thinking") return includeThinking;
-      if (p.type === "text") return includeText;
-      return true;
-    });
+    const content = contentOf(message).filter((p) => p.type !== "thinking" || includeThinking);
     return { ...message, content: content as AssistantMessage["content"] };
   }
 
@@ -291,11 +273,6 @@ export default function zenMode(pi: ExtensionAPI) {
 
   /* ---------------- presentation ---------------- */
 
-  function isFinalTextEntry(col: RunCollector, idx: number): boolean {
-    if (col.finalTextIndex < 0) return false;
-    return idx === col.finalTextIndex;
-  }
-
   function assistantInternals(comp: AssistantMessageComponent): AssistantInternals {
     return comp as unknown as AssistantInternals;
   }
@@ -303,31 +280,23 @@ export default function zenMode(pi: ExtensionAPI) {
   /** Collapsed presentation for one assistant message. */
   function presentAssistant(
     comp: AssistantMessageComponent,
-    col: RunCollector,
-    idx: number,
+    _col: RunCollector,
+    _idx: number,
   ) {
     const self = assistantInternals(comp);
     const message = assistantStates.get(comp) ?? self.lastMessage;
     if (!message) return;
     const container = self.contentContainer;
-    const textParts = visibleTextParts(message);
     const thinkingParts = visibleThinking(message);
-    const finalText = isFinalTextEntry(col, idx);
     const includeThinking = !config.hideThinking;
-    const includeText = finalText || !config.hideInterimText;
 
-    // Visible categories go through the captured original renderer so
-    // compact-thinking / native thinking UI is preserved. Hidden ones
-    // become one-line placeholders afterwards.
-    if (includeThinking || includeText) {
-      originalAssistantUpdate.call(
-        comp,
-        filterMessage(message, includeThinking, includeText),
-        false,
-      );
-    } else {
-      container.clear();
-    }
+    // Text always goes through the captured original renderer. Thinking
+    // is native when unhidden, a placeholder when hidden.
+    originalAssistantUpdate.call(
+      comp,
+      filterMessage(message, includeThinking),
+      false,
+    );
 
     if (!includeThinking && thinkingParts.length > 0) {
       const joined = thinkingParts.map((p) => (p.thinking ?? "").trim());
@@ -345,19 +314,6 @@ export default function zenMode(pi: ExtensionAPI) {
         container.addChild(new Spacer(1));
         container.addChild(line);
       }
-    }
-
-    if (!includeText && textParts.length > 0) {
-      const firstLine = (textParts[0]?.text ?? "").trim().split("\n")[0];
-      const preview = firstLine.length > 140 ? firstLine.slice(0, 140) + "…" : firstLine;
-      if (container.children.length === 0) container.addChild(new Spacer(1));
-      container.addChild(
-        new Text(
-          dim(`📝 中间回复已折叠${preview ? ` · ${preview}` : ""}`),
-          self.outputPad,
-          0,
-        ),
-      );
     }
 
     if (container.children.length === 0) {
@@ -378,43 +334,33 @@ export default function zenMode(pi: ExtensionAPI) {
     }
   }
 
-  function collapseSummary(col: RunCollector): { tools: number; thinking: number; interim: number } {
+  function collapseSummary(col: RunCollector): { tools: number; thinking: number } {
     let tools = 0;
     let thinking = 0;
-    let interim = 0;
-    col.comps.forEach((entry, idx) => {
+    for (const entry of col.comps) {
       if (entry.kind === "tool") {
         tools++;
       } else {
         const comp = entry.component as AssistantMessageComponent;
         const message = assistantStates.get(comp);
-        if (!message) return;
-        const isFinal = isFinalTextEntry(col, idx);
+        if (!message) continue;
         if (config.hideThinking && visibleThinking(message).length > 0) thinking++;
-        if (
-          config.hideInterimText &&
-          !isFinal &&
-          visibleTextParts(message).length > 0
-        ) {
-          interim++;
-        }
       }
-    });
-    return { tools: config.hideTools ? tools : 0, thinking, interim };
+    }
+    return { tools: config.hideTools ? tools : 0, thinking };
   }
 
   /** Dim footer appended to the final answer listing what was collapsed. */
   function addCollapseFooter(col: RunCollector) {
     if (col.finalTextIndex < 0) return;
     const counts = collapseSummary(col);
-    const hidden = counts.tools + counts.thinking + counts.interim;
+    const hidden = counts.tools + counts.thinking;
     if (hidden === 0) return;
     const comp = col.comps[col.finalTextIndex].component as AssistantMessageComponent;
     const self = assistantInternals(comp);
     const parts: string[] = [];
     if (counts.tools > 0) parts.push(`${counts.tools} 次工具调用`);
     if (counts.thinking > 0) parts.push(`${counts.thinking} 段思考`);
-    if (counts.interim > 0) parts.push(`${counts.interim} 条中间回复`);
     self.contentContainer.addChild(new Spacer(1));
     const olderHint =
       collectors.some((c) => c !== col)
@@ -476,17 +422,12 @@ export default function zenMode(pi: ExtensionAPI) {
             assistantStates.get(comp) ?? assistantInternals(comp).lastMessage;
           if (!message) continue;
           const includeThinking = !config.hideThinking;
-          const includeText = shouldStreamText(message);
           try {
-            if (!includeThinking && !includeText) {
-              assistantInternals(comp).contentContainer.clear();
-            } else {
-              originalAssistantUpdate.call(
-                comp,
-                filterMessage(message, includeThinking, includeText),
-                assistantInternals(comp).isStreaming,
-              );
-            }
+            originalAssistantUpdate.call(
+              comp,
+              filterMessage(message, includeThinking),
+              assistantInternals(comp).isStreaming,
+            );
           } catch {
             // mid-teardown
           }
@@ -586,14 +527,9 @@ export default function zenMode(pi: ExtensionAPI) {
         typeof ts === "number" || typeof ts === "string" ? `m:${ts}` : undefined;
       capture("assistant", this, id);
       const includeThinking = !config.hideThinking;
-      const includeText = shouldStreamText(message);
-      if (!includeThinking && !includeText) {
-        self.contentContainer.clear();
-        return;
-      }
       originalAssistantUpdate.call(
         this,
-        filterMessage(message, includeThinking, includeText),
+        filterMessage(message, includeThinking),
         isStreaming,
       );
     } catch {
@@ -637,10 +573,8 @@ export default function zenMode(pi: ExtensionAPI) {
   /* ---------------- lifecycle ---------------- */
 
   function beginRun() {
-    const alreadyBusy = busy;
     busy = true;
     installPatches();
-    if (!alreadyBusy) toolsInFlight = 0;
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
   }
@@ -678,7 +612,6 @@ export default function zenMode(pi: ExtensionAPI) {
     // Snapshot the tools Pi actually started in this epoch before clearing.
     const confirmed = new Set(activeToolIds);
     activeToolIds.clear();
-    toolsInFlight = 0;
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
 
@@ -707,7 +640,6 @@ export default function zenMode(pi: ExtensionAPI) {
     collector = undefined;
     busy = false;
     activeToolIds.clear();
-    toolsInFlight = 0;
     presentedCollector = undefined;
     collectors.length = 0;
     if (deferTimer) clearTimeout(deferTimer);
@@ -834,12 +766,6 @@ export default function zenMode(pi: ExtensionAPI) {
         currentValue: config.hideTools ? "on" : "off",
         values: ["on", "off"],
       },
-      {
-        id: "hideInterimText",
-        label: "📝 运行时隐藏中间回复 · interim",
-        currentValue: config.hideInterimText ? "on" : "off",
-        values: ["on", "off"],
-      },
     ];
   }
 
@@ -853,10 +779,6 @@ export default function zenMode(pi: ExtensionAPI) {
       refreshCollapsedRuns();
     } else if (id === "hideTools") {
       config.hideTools = on;
-      saveConfig();
-      refreshCollapsedRuns();
-    } else if (id === "hideInterimText") {
-      config.hideInterimText = on;
       saveConfig();
       refreshCollapsedRuns();
     }
@@ -885,7 +807,7 @@ export default function zenMode(pi: ExtensionAPI) {
             const mark = theme.fg("accent", frames[frame]);
             return [
               `${mark}  ${theme.fg("accent", theme.bold("zen · Focus Mode"))}`,
-              theme.fg("muted", "三个开关控制运行时藏什么;关掉的那一类走原生 UI。结束后隐藏项收成占位,最终答案照常出现。"),
+              theme.fg("muted", "两个开关控制运行时藏思考 / 工具;文字始终走原生 UI。结束后隐藏项收成占位。"),
               "",
             ];
           }
@@ -932,7 +854,6 @@ export default function zenMode(pi: ExtensionAPI) {
     const parts: string[] = [];
     if (counts.tools > 0) parts.push(`${counts.tools} 工具`);
     if (counts.thinking > 0) parts.push(`${counts.thinking} 思考`);
-    if (counts.interim > 0) parts.push(`${counts.interim} 回复`);
     const detail = parts.length > 0 ? parts.join(" / ") : "过程";
     const secs = Math.max(0, Math.round((Date.now() - col.startedAt) / 1000));
     const when = secs < 90 ? `${secs}s 前` : `${Math.round(secs / 60)}m 前`;
@@ -1096,32 +1017,11 @@ export default function zenMode(pi: ExtensionAPI) {
     const evt = _event as { toolCallId?: string; toolName?: string };
     const id = evt.toolCallId ?? evt.toolName;
     if (id) activeToolIds.add(id);
-    toolsInFlight++;
-    // Pre-tool prose that already streamed is interim now — hide it.
-    if (config.hideInterimText && collector) {
-      for (const entry of collector.comps) {
-        if (entry.kind !== "assistant") continue;
-        const comp = entry.component as AssistantMessageComponent;
-        const message = assistantStates.get(comp);
-        if (!message) continue;
-        try {
-          originalAssistantUpdate.call(
-            comp,
-            filterMessage(message, !config.hideThinking, false),
-            false,
-          );
-        } catch {
-          // ignore mid-teardown
-        }
-      }
-      activeTui?.requestRender(true);
-    }
   });
 
   pi.on("tool_execution_end", async (_event, ctx) => {
     if (!config.enabled || !busy) return;
     activeCtx = ctx;
-    toolsInFlight = Math.max(0, toolsInFlight - 1);
     maybeFinalize(ctx);
   });
 

@@ -13,13 +13,13 @@
 
 ---
 
-运行 pi 时，每轮对话会刷出大段 reasoning、工具调用、中间小结… **Zen-mode** 按开关把它们藏起来：关掉的那一类仍走原生 UI（思考块保持原来的样式）；开着的那一类一出现就被隐藏，跑完收成一行浅色占位，最终答案照常出现。想看被藏的过程？一个按键即可展开：
+运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 按开关把这两类藏起来：关掉的仍走原生 UI（思考块保持原来的样式）；开着的一出现就被隐藏，跑完收成一行浅色占位。模型说的话始终照常流，不藏。想看被藏的过程？一个按键即可展开：
 
 <img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
 
 ## 特性
 
-- **运行时按开关隐藏** — 思考 / 工具 / 中间回复各自决定要不要实时显示
+- **运行时按开关隐藏** — 思考 / 工具各自决定要不要实时显示；文字始终流式出现
 - **可见项走原生 UI** — 不隐藏的思考块保持 compact-thinking / 原生样式
 - **结束见真章** — 最终答案全文显示,被藏的内容折成一行占位
 - **随时可回看** — `ctrl+alt+r` 用原生渲染展开最近一轮过程
@@ -63,7 +63,6 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
   "enabled": true,
   "hideThinking": true,
   "hideTools": true,
-  "hideInterimText": true,
   "toggleKey": "ctrl+alt+f",
   "revealKey": "ctrl+alt+r",
   "pickerKey": "ctrl+alt+s"
@@ -75,10 +74,9 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | `enabled` | 总开关 |
 | `hideThinking` | 运行时隐藏思考块;结束后折成一行 `💭`;`false` 则实时显示原生思考 UI |
 | `hideTools` | 运行时隐藏工具调用;结束后折成一行 `⚙`;`false` 则实时原生渲染 |
-| `hideInterimText` | 运行时隐藏中间回复;结束后折成一行;`false` 则实时显示 |
 | `toggleKey` / `revealKey` / `pickerKey` | 三个快捷键,任意合法的 pi 键位字符串 |
 
-zen 开着时三类输出都会被管起来（方便事后改开关）。三个子开关只决定**藏还是显示**，以及底栏统计。关掉某一档走原生 UI；再打开会把已结束轮次里对应的行收成占位（只重绘被管到的那些组件）。`ctrl+alt+r` 展开走原生渲染。改完 `/reload` 生效。
+zen 开着时思考和工具都会被管起来（方便事后改开关）。两个子开关只决定**藏还是显示**，以及底栏统计。文字不藏——中间那句「我先看看」和最终答案在协议里分不开，硬藏只会闪几个字再消失。关掉某一档走原生 UI；再打开会把已结束轮次里对应的行收成占位（只重绘被管到的那些组件）。`ctrl+alt+r` 展开走原生渲染。改完 `/reload` 生效。
 
 ## 兼容性
 
