@@ -1,6 +1,6 @@
 # pi-zen-mode 设计说明
 
-对照源码：`zen-mode.ts`（约 1075 行）。本文记录**已经落地的决策**，不是路线图。README 面向安装和使用；本文面向「为什么这样、运行时到底发生了什么」。
+对照源码：`zen-mode.ts`（约 1020 行）。本文记录**已经落地的决策**，不是路线图。README 面向安装和使用；本文面向「为什么这样、运行时到底发生了什么」。
 
 ---
 
@@ -68,7 +68,7 @@ zen 开着时，思考和工具**一律进 collector**。`hideThinking` / `hideT
 
 ### 2.7 重绘是 collector 里那些组件，不是整段对话重跑
 
-改开关或一轮结束：只遍历该 collector 的助手消息 / 工具行，重建或 `invalidate`。然后 `requestRender(true)` 刷一帧 TUI（终端几乎都是整帧画），数据改动是局部的。
+改开关或一轮结束：只遍历该 collector 的助手消息 / 工具行，重建或 `invalidate`。`presentCollector` / `revealCollector` 自己不刷屏；由 `maybeFinalize`、`setRunRevealed`、`setEnabled`、面板/选择框各刷**一帧**。终端几乎都是整帧画，但同一操作不再叠 N+1 次 `requestRender`。
 
 ### 2.8 历史以「还在屏幕上的组件」为界
 
@@ -87,11 +87,11 @@ turn_start
 流式中 (busy)
     助手 updateContent
         ├─ 完整消息写入 assistantStates（展开要用）
-        ├─ capture 进当前 collector（按 message.timestamp 去重）
+        ├─ capture 进当前 collector（按 message.timestamp 去重；同 id 换组件则改指针）
         └─ filterMessage(去 thinking 或留) + originalAssistantUpdate
            文字始终留下；thinking 由 hideThinking 决定
     工具 render
-        ├─ zen 开着且 busy 且尚未归属 → capture（按 toolCallId 去重）
+        ├─ zen 开着且 busy 且尚未归属 → capture（按 toolCallId 去重；同 id 换组件则改指针）
         ├─ hideTools 关 → originalToolRender（实时工具行）
         └─ hideTools 开 → return []（一行都不出，防闪）
     tool_execution_start → activeToolIds.add(id)
@@ -120,7 +120,7 @@ turn_end / 工具结束 / abort
 对 collector 里每个组件：
 
 - 助手：`originalAssistantUpdate(filterMessage(完整消息, !hideThinking), isStreaming=false)`。若思考被藏，在容器顶部插入一行 `💭 思考已折叠 · N 词`。
-- 工具：`invalidate()`。下一帧 `patchedToolRender`：藏则 `⚙ name — ok · N lines`（或 `failed`）；不藏则原生。`expanded === true`（用户 `ctrl+o`）时即使藏着也走原生。
+- 工具：`invalidate()`。下一帧 `patchedToolRender`：藏则 `⚙ name — ok · N lines`（或 `failed`）；不藏则原生。若 Pi 的 `ctrl+o` 把该行 `expanded` 设为 true（会话级总开关，当前所有工具 + 之后新建的），结束后走原生完整输出，不再占位。**运行中** busy 分支先 `return []`，不看 `expanded`，所以跑着的时候 `ctrl+o` 不会把工具画出来。
 
 最后在**本轮最后一条有可见 text 的助手消息**底下加底栏（没有可藏的东西则不加）：
 
@@ -135,8 +135,8 @@ zen · 3 次工具调用 / 1 段思考已折叠 — ctrl+alt+r 展开本轮 · c
 - `ctrl+alt+r`：对 `presentedCollector`（最近一轮）翻转 `revealed` WeakMap。
 - `ctrl+alt+s`：SettingsList，每行 `#序号 · 多久以前 · N 工具 / M 思考`。Enter 翻转那一轮，Esc 关。编号 `#1` 是最近一轮，列表本身按时间从早到晚。
 - 展开：完整消息交给 `originalAssistantUpdate`；工具 `invalidate` 后走 `originalToolRender`。
-- 再收起：同一套 `presentAssistant` + 工具占位。
-- 关总开关 / session 结束：`restoreAllReveal()` 把当前轮 + 历史轮全部展开，卸补丁。
+- 再收起：走 `presentCollector`（和结束时同一套占位 + 底栏）。
+- 关总开关：`restoreAllReveal()` 再 `uninstallPatches()`。session 结束同样先还原再卸补丁。
 
 ---
 
@@ -149,7 +149,7 @@ zen · 3 次工具调用 / 1 段思考已折叠 — ctrl+alt+r 展开本轮 · c
 | 隐藏工具 | `/zen` · ⚙ |
 | 展开最近一轮 | `ctrl+alt+r`（可配） |
 | 挑选任意一轮 | `ctrl+alt+s`（可配） |
-| 单条工具原生展开 | Pi 自带 `ctrl+o`（看 `ToolInternals.expanded`） |
+| Pi 全局展开工具 | 自带 `ctrl+o`：会话级 `toolOutputExpanded`，当前所有工具行 + 之后新建的工具行 |
 | 状态指示 | `ctx.ui.setStatus("zen", "◉ zen")`，跟其它扩展状态同一行；自定义 footer（如 pi-statusline）走它自己的 extension-status |
 | 配置持久化 | `~/.pi/agent/zen-mode.json`（或 `$PI_CODING_AGENT_DIR` 下） |
 
@@ -162,11 +162,13 @@ zen · 3 次工具调用 / 1 段思考已折叠 — ctrl+alt+r 展开本轮 · c
 一轮一个 `RunCollector`：
 
 ```
-comps: { kind: "assistant" | "tool", component }[]
-startedAt / lastEventAt
+comps: { kind: "assistant" | "tool", component, id? }[]
+startedAt
 finalTextIndex   // 最后一条带可见 text 的助手在 comps 里的下标，底栏挂这里
-seen: Set<string>  // "m:<timestamp>" / "t:<toolCallId>"，Pi 重建组件时不重复收
+seen: Set<string>  // "m:<timestamp>" / "t:<toolCallId>"
 ```
+
+`capture(id)`：没见过就推进 comps；见过且组件实例变了，就把那条的 `component` 指针改到新实例（Pi 重建同一条消息时，折叠/展开不能还握着已摘掉的旧组件）。
 
 旁路索引（都不持有强引用组件以外的生命周期）：
 
@@ -215,6 +217,8 @@ prototype 换成 patched*
    - busy 但尚未归属（极端）→ `[]`
 
 占位文案：`⚙ {toolName} — ok · N lines` / `failed` / `done`，用 theme `muted`。
+
+`ctrl+o` 是 Pi 的全局工具展开，不是单条。运行中命中「当前轮且 busy → `[]`」，不看 `expanded`；一轮结束才看。新工具行创建时会带上当时的 `toolOutputExpanded`，所以展开过后再跑一轮，结束后仍会完整显示。
 
 ### 6.3 为什么 thinking 展开不是 Markdown
 
@@ -298,7 +302,8 @@ prototype 换成 patched*
 | `patchedAssistantUpdate` / `patchedToolRender` | 运行中怎么画 |
 | `beginRun` / `maybeFinalize` / `pruneUnconfirmedTools` | 一轮的起止 |
 | `setEnabled` / `syncZenStatus` / `restoreAllReveal` | 总开关 |
-| `toggleReveal` / `openRunPicker` | 回看 |
+| `setRunRevealed` / `toggleReveal` / `openRunPicker` | 回看（收起复用 `presentCollector`） |
+| `pruneZenHistory` | compact / 切分支：清名单、busy、defer timer |
 | `openZenPanel` / `applyZenChange` | `/zen` |
 | `rejectIfBusy` + `registerCommand` / `registerShortcut` | 入口 |
 | `pi.on(...)` | 事件 |

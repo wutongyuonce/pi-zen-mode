@@ -1,7 +1,7 @@
 <h1 align="center">Zen-mode</h1>
 
 <p align="center">
-  Nothing while it runs — only the answer when it's done.
+  Hide thinking and tools. Words still stream.
   <br>
   <i>Distraction-free focus mode for <a href="https://github.com/earendil-works/pi-mono">Pi</a></i>
 </p>
@@ -47,7 +47,7 @@ Update with `pi update --extensions`.
 | `ctrl+alt+s` | Open a picker to reveal / collapse **any** collapsed run |
 | `/zen` | Open the settings panel (same style as `/tools`) |
 
-`ctrl+o` (Pi built-in) still expands a single tool's full output.
+`ctrl+o` is Pi's **global** tool-output toggle (not per row): it expands every tool currently on screen and new tool rows inherit that flag. While a run is in flight zen still paints tools as empty; after the run, if the flag is on, tools render in full instead of the one-line placeholder. Press `ctrl+o` again to collapse and placeholders come back.
 
 While a run is in progress `/zen` and the three shortcuts are ignored — change settings after it finishes so a half-streamed turn is not rewritten mid-flight.
 
