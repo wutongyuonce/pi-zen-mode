@@ -91,7 +91,7 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
 | Key | Meaning |
 | --- | --- |
 | `enabled` | Master switch |
-| `hideThinking` | Hide thinking while running; collapse to a one-line `💭` when done; `false` streams the native thinking UI |
+| `hideThinking` | Hide thinking while running; collapse to a one-line `◈` when done; `false` streams the native thinking UI |
 | `hideTools` | Hide tool calls while running; collapse to a one-line `⚙` when done; `false` streams native tool rows |
 | `toggleKey` / `revealKey` / `pickerKey` | The three shortcuts — any valid Pi keybinding string |
 

@@ -91,7 +91,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | 字段 | 含义 |
 | --- | --- |
 | `enabled` | 总开关 |
-| `hideThinking` | 运行时隐藏思考块;结束后折成一行 `💭`;`false` 则实时显示原生思考 UI |
+| `hideThinking` | 运行时隐藏思考块;结束后折成一行 `◈`;`false` 则实时显示原生思考 UI |
 | `hideTools` | 运行时隐藏工具调用;结束后折成一行 `⚙`;`false` 则实时原生渲染 |
 | `toggleKey` / `revealKey` / `pickerKey` | 三个快捷键,任意合法的 pi 键位字符串 |
 

@@ -119,7 +119,7 @@ turn_end / 工具结束 / abort
 
 对 collector 里每个组件：
 
-- 助手：`originalAssistantUpdate(filterMessage(完整消息, !hideThinking), isStreaming=false)`。若思考被藏，在容器顶部插入一行 `💭 思考已折叠 · N 词`。
+- 助手：`originalAssistantUpdate(filterMessage(完整消息, !hideThinking), isStreaming=false)`。若思考被藏，在容器顶部插入一行 `◈ 思考已折叠 · N 词`。
 - 工具：`invalidate()`。下一帧 `patchedToolRender`：藏则 `⚙ name — ok · N lines`（或 `failed`）；不藏则原生。若 Pi 的 `ctrl+o` 把该行 `expanded` 设为 true（会话级总开关，当前所有工具 + 之后新建的），结束后走原生完整输出，不再占位。**运行中** busy 分支先 `return []`，不看 `expanded`，所以跑着的时候 `ctrl+o` 不会把工具画出来。
 
 最后在**本轮最后一条有可见 text 的助手消息**底下加底栏（没有可藏的东西则不加）：
@@ -145,7 +145,7 @@ zen · 3 次工具调用 / 1 段思考已折叠 — ctrl+alt+r 展开本轮 · c
 | 能力 | 入口 |
 | --- | --- |
 | 总开关 | `/zen` 第一项，或 `ctrl+alt+f`（可配） |
-| 隐藏思考 | `/zen` · 💭 |
+| 隐藏思考 | `/zen` · ◈ |
 | 隐藏工具 | `/zen` · ⚙ |
 | 展开最近一轮 | `ctrl+alt+r`（可配） |
 | 挑选任意一轮 | `ctrl+alt+s`（可配） |

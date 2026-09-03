@@ -305,7 +305,7 @@ export default function zenMode(pi: ExtensionAPI) {
       const words = joined.reduce((a, t) => a + t.split(/\s+/).length, 0);
       const runs = joined.length;
       const line = new Text(
-        think(`💭 ${runs > 1 ? `${runs} 段思考` : "思考"}已折叠 · ${words} 词`),
+        think(`◈ ${runs > 1 ? `${runs} 段思考` : "思考"}已折叠 · ${words} 词`),
         self.outputPad,
         0,
       );
@@ -719,7 +719,7 @@ export default function zenMode(pi: ExtensionAPI) {
       },
       {
         id: "hideThinking",
-        label: "💭 运行时隐藏思考 · thinking",
+        label: "◈ 运行时隐藏思考 · thinking",
         currentValue: config.hideThinking ? "on" : "off",
         values: ["on", "off"],
       },
