@@ -8,22 +8,15 @@
 <p align="center">
   <a href="README.md">中文</a> · <a href="README.en.md">English</a> · <a href="DESIGN.md">Design notes (中文)</a>
 </p>
-Every turn in Pi floods the chat with reasoning and tool calls. **Zen-mode** hides those two kinds of process output with switches: turn a switch off and that category keeps its native UI (thinking blocks stay looking like thinking blocks); turn it on and the output is hidden. The model's words always stream as usual. When the run finishes, what was hidden is re-rendered as a dim one-line placeholder.
+Every turn in Pi floods the chat with reasoning and tool calls. **Zen-mode** hides those two kinds of process output with switches: turn a switch off and that category keeps its native UI (thinking blocks stay looking like thinking blocks); turn it on and the output is hidden. The model's words always stream as usual. When the run finishes, what was hidden is re-rendered as a dim one-line placeholder. Want to see the hidden process? `Ctrl+Alt+R` unfolds the latest run:
 
 <p align="center">
-  <img src="img/image-20260904020809983.png" alt="zen collapsed run" width="480" />
+  <img src="img/image-20260904031548477.png" alt="zen collapsed run" width="780" />
 </p>
-
-Want to see the hidden process? `Ctrl+Alt+R` unfolds the latest run:
-
-<p align="center">
-  <img src="img/image-20260904020905103.png" alt="zen reveal latest run" width="560" />
-</p>
-
 `Ctrl+Alt+S` unfolds earlier runs:
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="560" />
+  <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="660" />
 </p>
 
 ## Features
@@ -51,8 +44,9 @@ Update with `pi update --extensions`.
 `/zen` opens the settings panel:
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_02-43-34.png" alt="zen settings panel" width="560" />
+  <img src="img/PixPin_2026-09-04_03-19-15.png" alt="zen settings panel" width="660" />
 </p>
+
 
 Besides the **focus mode** switch, there are two more:
 

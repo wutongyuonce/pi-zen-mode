@@ -8,24 +8,18 @@
 <p align="center">
   <a href="README.md">中文</a> · <a href="README.en.md">English</a> · <a href="DESIGN.md">设计说明</a>
 </p>
-运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 用开关把这两类过程输出藏起来：关掉开关，输出仍走原生 UI（思考块保持原来的样式）；开启开关，输出被隐藏。模型说的话始终照常流式输出。最终跑完隐藏的过程重新渲染成浅色占位行。
+运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 用开关把这两类过程输出藏起来：关掉开关，输出仍走原生 UI（思考块保持原来的样式）；开启开关，输出被隐藏。模型说的话始终照常流式输出。最终跑完隐藏的过程重新渲染成浅色占位行。想看被隐藏了的过程？一个按键 `Ctrl+Alt+R` 即可展开最近一轮：
 
 <p align="center">
-  <img src="img/image-20260904020809983.png" alt="zen collapsed run" width="480" />
+  <img src="img/image-20260904031548477.png" alt="zen collapsed run" width="780" />
 </p>
 
-想看被隐藏了的过程？一个按键 `Ctrl+Alt+R` 即可展开最近一轮：
-
-<p align="center">
-  <img src="img/image-20260904020905103.png" alt="zen reveal latest run" width="560" />
-</p>
 
 而 `Ctrl+Alt+S` 能展开更早的轮次：
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="560" />
+  <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="660" />
 </p>
-
 ## 特性
 
 - **按开关隐藏** — 思考 / 工具各自决定要不要实时显示；文字始终流式出现
@@ -51,9 +45,8 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 `/zen` 打开设置面板：
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_02-43-34.png" alt="zen settings panel" width="560" />
+  <img src="img/PixPin_2026-09-04_03-19-15.png" alt="zen settings panel" width="660" />
 </p>
-
 除了 **focus mode 开关**之外，还有两个开关：
 
 * **thinking 开关**，控制 focus mode 生命周期下的每轮对话是否隐藏 thinking 块
