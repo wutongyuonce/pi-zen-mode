@@ -185,6 +185,9 @@ export default function zenMode(pi: ExtensionAPI) {
 
   // Current hidden run group; spans consecutive turns until the agent idles.
   let collector: RunCollector | undefined;
+  // Every collector ever presented, so zen-off / shutdown can restore all of
+  // them (not just the newest) to their original rendering.
+  const collectors: RunCollector[] = [];
   let busy = false;
   let presentedCollector: RunCollector | undefined;
 
@@ -546,6 +549,7 @@ export default function zenMode(pi: ExtensionAPI) {
 
     if (col.comps.length === 0) return;
     presentCollector(col);
+    collectors.push(col);
     presentedCollector = col;
   }
 
@@ -561,10 +565,12 @@ export default function zenMode(pi: ExtensionAPI) {
   function restoreAllReveal() {
     const seen = new Set<RunCollector>();
     if (collector) seen.add(collector);
+    for (const col of collectors) seen.add(col);
     if (presentedCollector) seen.add(presentedCollector);
     collector = undefined;
     busy = false;
     presentedCollector = undefined;
+    collectors.length = 0;
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
     for (const col of seen) revealCollector(col);
