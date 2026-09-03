@@ -586,15 +586,13 @@ export default function zenMode(pi: ExtensionAPI) {
           }
           return toolPlaceholderLines(this);
         } else if (busy) {
+          // Hide every row that renders during the run immediately (no flash).
+          // Finalize later keeps only rows whose tool_execution_start
+          // confirmed this run; legacy rows Pi merely re-rendered are pruned
+          // and restored to their normal rendering.
           const info = this as unknown as ToolInternals;
-          const key = info.toolCallId ?? info.toolName;
-          if (key && activeToolIds.has(key)) {
-            // A tool Pi actually started during this run: hide + collect once.
-            capture("tool", this, `t:${key}`);
-            return [];
-          }
-          // Otherwise this is a legacy / pre-zen row that Pi re-rendered
-          // while a new run streams — keep it visible as-is, never count it.
+          capture("tool", this, `t:${info.toolCallId ?? info.toolName}`);
+          return [];
         }
       }
       return originalToolRender.call(this, width);
@@ -612,6 +610,27 @@ export default function zenMode(pi: ExtensionAPI) {
     deferTimer = undefined;
   }
 
+  /** Tools whose tool_execution_start never fired during this busy epoch are
+   * legacy rows Pi merely re-rendered (e.g. after a /reload or a scroll
+   * repaint). They are not part of the run: unlink them so their normal
+   * rendering returns and they are not counted. */
+  function pruneUnconfirmedTools(col: RunCollector, confirmed: Set<string>) {
+    const kept: TrackedEntry[] = [];
+    for (const entry of col.comps) {
+      if (entry.kind === "tool") {
+        const comp = entry.component as unknown as ToolInternals;
+        const key = comp.toolCallId ?? comp.toolName;
+        if (key && !confirmed.has(key)) {
+          compCollector.delete(comp);
+          safeInvalidate(entry.component as ToolExecutionComponent);
+          continue;
+        }
+      }
+      kept.push(entry);
+    }
+    col.comps = kept;
+  }
+
   function maybeFinalize(ctx: ExtensionContext) {
     if (!config.enabled || !busy || !collector) return;
     if (!ctx.isIdle() || ctx.hasPendingMessages()) {
@@ -621,10 +640,14 @@ export default function zenMode(pi: ExtensionAPI) {
     busy = false;
     const col = collector;
     collector = undefined;
+    // Snapshot the tools Pi actually started in this epoch before clearing.
+    const confirmed = new Set(activeToolIds);
     activeToolIds.clear();
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
 
+    if (col.comps.length === 0) return;
+    pruneUnconfirmedTools(col, confirmed);
     if (col.comps.length === 0) return;
     presentCollector(col);
     collectors.push(col);
