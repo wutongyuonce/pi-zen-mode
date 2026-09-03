@@ -643,25 +643,25 @@ export default function zenMode(pi: ExtensionAPI) {
     return [
       {
         id: "enabled",
-        label: "Focus mode (zen)",
+        label: "◎  专注模式 · focus mode",
         currentValue: config.enabled ? "on" : "off",
         values: ["on", "off"],
       },
       {
         id: "hideThinking",
-        label: "Collapse thinking blocks",
+        label: "💭 折叠思考块 · thinking",
         currentValue: config.hideThinking ? "on" : "off",
         values: ["on", "off"],
       },
       {
         id: "hideTools",
-        label: "Collapse tool calls",
+        label: "⚙ 折叠工具调用 · tools",
         currentValue: config.hideTools ? "on" : "off",
         values: ["on", "off"],
       },
       {
         id: "hideInterimText",
-        label: "Collapse interim replies",
+        label: "📝 折叠中间回复 · interim",
         currentValue: config.hideInterimText ? "on" : "off",
         values: ["on", "off"],
       },
@@ -691,12 +691,22 @@ export default function zenMode(pi: ExtensionAPI) {
       return;
     }
     await ctx.ui.custom((tui, theme, _kb, done) => {
+      // Gentle rotating mark on the title while the panel is open.
+      const frames = ["◴", "◷", "◶", "◵"];
+      let frame = 0;
+      const timer = setInterval(() => {
+        frame = (frame + 1) % frames.length;
+        tui.requestRender();
+      }, 240);
+      const stop = () => clearInterval(timer);
+
       const container = new Container();
       container.addChild(
         new (class {
           render(_width: number) {
+            const mark = theme.fg("accent", frames[frame]);
             return [
-              theme.fg("accent", theme.bold("zen · Focus Mode")),
+              `${mark}  ${theme.fg("accent", theme.bold("zen · Focus Mode"))}`,
               theme.fg("muted", "运行中聊天区只显示加载动画;结束后中间内容收成占位,只留最终答案。"),
               "",
             ];
@@ -713,7 +723,10 @@ export default function zenMode(pi: ExtensionAPI) {
           applyZenChange(id, newValue, ctx);
           tui.requestRender();
         },
-        () => done(undefined),
+        () => {
+          clearInterval(timer);
+          done(undefined);
+        },
       );
       container.addChild(settingsList);
       return {
@@ -726,6 +739,9 @@ export default function zenMode(pi: ExtensionAPI) {
         handleInput(data: string) {
           settingsList.handleInput?.(data);
           tui.requestRender();
+        },
+        dispose() {
+          stop();
         },
       };
     });
