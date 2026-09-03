@@ -46,6 +46,7 @@ import {
   Text,
   type SettingItem,
   type TUI,
+  visibleWidth,
 } from "@earendil-works/pi-tui";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -927,10 +928,27 @@ export default function zenMode(pi: ExtensionAPI) {
     // NOTE: patches are installed lazily (first busy run / enable) so zen
     // always wraps whatever other extensions installed during session_start.
 
-    ctx.ui.setWidget(WIDGET_ID, (tui) => {
+  /* The widget doubles as the render handle (empty render when zen is off)
+   * and as a right-aligned indicator chip under the editor when zen is on. */
+  ctx.ui.setWidget(
+    WIDGET_ID,
+    (tui, theme) => {
       activeTui = tui;
-      return { render: () => [], invalidate() {} };
-    });
+      activeTheme = theme;
+      return {
+        render(width: number) {
+          if (!config.enabled) return [];
+          const label = "◉ zen";
+          const labelWidth = visibleWidth(label);
+          const pad = Math.max(1, width - labelWidth - 1);
+          const chip = theme.fg("accent", theme.bold(label));
+          return [pad > 0 ? " ".repeat(pad) + chip : chip];
+        },
+        invalidate() {},
+      };
+    },
+    { placement: "belowEditor" },
+  );
 
     // On resume, pi may have rebuilt components before we installed patches.
     // Re-render previously hidden collectors with the current presentation.
