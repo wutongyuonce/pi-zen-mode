@@ -49,6 +49,8 @@ Update with `pi update --extensions`.
 
 `ctrl+o` (Pi built-in) still expands a single tool's full output.
 
+While a run is in progress `/zen` and the three shortcuts are ignored — change settings after it finishes so a half-streamed turn is not rewritten mid-flight.
+
 > After a **compaction** (auto or `/compact`) or a branch switch, runs before that point no longer have live components — their full process was replaced by the summary — so those collapsed runs can't be expanded; the picker only lists runs collapsed afterwards.
 
 ## Configuration

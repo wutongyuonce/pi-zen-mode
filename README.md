@@ -50,6 +50,8 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 
 `ctrl+o`（pi 原生）仍可单独展开某个工具的完整输出。
 
+一轮还在跑时 `/zen` 和三个快捷键都会被挡住，结束后再用，避免改到一半的流式输出。
+
 > 发生 **compact**（自动或 `/compact`）或切换分支后,compact / 切换之前轮次的完整过程已被摘要替换、组件已不存在,那些折叠轮无法再展开——选择框只保留其后产生的折叠轮。
 
 ## 配置

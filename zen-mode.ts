@@ -1124,10 +1124,17 @@ export default function zenMode(pi: ExtensionAPI) {
     maybeFinalize(ctx);
   });
 
+  function rejectIfBusy(ctx: ExtensionContext): boolean {
+    if (!busy) return false;
+    ctx.ui.notify("zen · 这轮还在跑，结束后再改");
+    return true;
+  }
+
   pi.registerCommand("zen", {
     description: "zen focus mode: hide thinking/tools while running, keep the final answer",
     handler: async (_args, ctx) => {
       activeCtx = ctx;
+      if (rejectIfBusy(ctx)) return;
       await openZenPanel(ctx);
     },
   });
@@ -1136,6 +1143,7 @@ export default function zenMode(pi: ExtensionAPI) {
     description: "Toggle zen focus mode",
     handler: async (ctx) => {
       activeCtx = ctx;
+      if (rejectIfBusy(ctx)) return;
       const next = !config.enabled;
       setEnabled(next, ctx);
       ctx.ui.notify(
@@ -1150,6 +1158,7 @@ export default function zenMode(pi: ExtensionAPI) {
     description: "Toggle zen reveal of the last run",
     handler: async (ctx) => {
       activeCtx = ctx;
+      if (rejectIfBusy(ctx)) return;
       toggleReveal();
     },
   });
@@ -1158,6 +1167,7 @@ export default function zenMode(pi: ExtensionAPI) {
     description: "Choose a collapsed zen run to expand/collapse",
     handler: async (ctx) => {
       activeCtx = ctx;
+      if (rejectIfBusy(ctx)) return;
       await openRunPicker(ctx);
     },
   });
