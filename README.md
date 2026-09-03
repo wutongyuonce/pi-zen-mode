@@ -8,14 +8,14 @@
 
 
 <p align="center">
-  <a href="README.md">中文</a> · <a href="README.en.md">English</a>
+  <a href="README.md">中文</a> · <a href="README.en.md">English</a> · <a href="DESIGN.md">设计说明</a>
 </p>
 
 ---
 
-运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 按开关把这两类藏起来：关掉的仍走原生 UI（思考块保持原来的样式）；开着的一出现就被隐藏，跑完收成一行浅色占位。模型说的话始终照常流，不藏。想看被藏的过程？一个按键即可展开：
+运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 按开关把这两类藏起来：关掉的仍走原生 UI（思考块保持原来的样式）；开着的一出现就被隐藏，跑完收成一行浅色占位。模型说的话始终照常流，不藏。想看被藏的过程？一个按键 `Ctrl+Alt+R` 即可展开最近一轮或 `Ctrl+Alt+S` 展开更早：
 
-<img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
+
 
 ## 特性
 
@@ -39,7 +39,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 
 ## 用法
 
-![PixPin_2026-09-03_22-17-07](img/PixPin_2026-09-03_22-17-07.png)
+
 
 | 按键 | 作用 |
 | --- | --- |
@@ -81,7 +81,6 @@ zen 开着时思考和工具都会被管起来（方便事后改开关）。两�
 ## 兼容性
 
 - 需要 TUI 模式
-- 与 pi-compact-thinking 并存：zen 关闭时不安装任何渲染补丁，compact-thinking 行为完全不变；开启时 zen 叠在其外层一并折叠，「展开」视图遵循内层管线（装了 compact-thinking 即显示其紧凑样式）
 - 通过接管 `AssistantMessageComponent` / `ToolExecutionComponent` 渲染实现，pi 升级后内部接口变动可能需要跟进更新
 - 已在 pi `0.84.x` 测试
 

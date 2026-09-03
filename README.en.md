@@ -7,14 +7,14 @@
 </p>
 
 <p align="center">
-  <a href="README.md">中文</a> · <a href="README.en.md">English</a>
+  <a href="README.md">中文</a> · <a href="README.en.md">English</a> · <a href="DESIGN.md">Design notes (中文)</a>
 </p>
 
 ---
 
 Every turn in Pi floods the chat with reasoning blocks and tool calls. **Zen-mode** hides whichever of those you switch off: unhidden categories keep their native UI live; hidden ones vanish as they appear and collapse to a dim one-liner when the run ends. Assistant text always streams — zen does not try to hide "interim" replies. One keypress unfolds the hidden process again.
 
-<img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
+
 
 ## Features
 
@@ -38,7 +38,7 @@ Update with `pi update --extensions`.
 
 ## Usage
 
-![PixPin_2026-09-03_22-17-07](img/PixPin_2026-09-03_22-17-07.png)
+
 
 | Key | Action |
 | --- | --- |
@@ -80,7 +80,6 @@ While zen is on, thinking and tools are tracked. The two sub-toggles only choose
 ## Compatibility
 
 - Requires TUI mode
-- Coexists with pi-compact-thinking: with zen off no renderer patches are installed and compact-thinking behaves exactly as before; with zen on it wraps them and collapses their output too — the reveal view follows whichever inner pipeline is installed (compact-thinking shows its compact style when present)
 - Implemented by hooking the `AssistantMessageComponent` / `ToolExecutionComponent` renderers — internal UI APIs may change in future Pi releases, so the extension may need updates after upgrading
 - Tested with Pi `0.84.x`
 
