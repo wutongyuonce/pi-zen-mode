@@ -1,7 +1,7 @@
 {
   "name": "pi-zen-mode",
-  "version": "0.1.1",
-  "description": "Distraction-free focus mode for Pi: nothing while it runs, only the final answer when it's done.",
+  "version": "0.2.0",
+  "description": "Distraction-free focus mode for Pi: hide thinking and tools, words still stream.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,6 +20,7 @@
     "img",
     "README.md",
     "README.en.md",
+    "DESIGN.md",
     "LICENSE"
   ],
   "pi": {

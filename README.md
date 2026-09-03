@@ -1,29 +1,24 @@
-<h1 align="center">Zen-mode</h1>
+<h1 align="center">🔖 Zen-mode</h1>
 
 <p align="center">
   藏思考和工具，文字照常流。
   <br>
   <i>Distraction-free focus mode for <a href="https://github.com/earendil-works/pi-mono">Pi</a></i>
 </p>
-
-
 <p align="center">
   <a href="README.md">中文</a> · <a href="README.en.md">English</a> · <a href="DESIGN.md">设计说明</a>
 </p>
+运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 用开关把这两类过程输出藏起来：关掉开关，输出仍走原生 UI（思考块保持原来的样式）；开启开关，输出被隐藏。模型说的话始终照常流式输出。最终跑完隐藏的过程重新渲染成浅色占位行。
 
----
-
-运行 pi 时，每轮对话会刷出大段 reasoning 和工具调用。**Zen-mode** 用开关把这两类过程输出藏起来：关掉开关，输出仍走原生 UI（思考块保持原来的样式）；开启开关，输出被隐藏。模型说的话始终照常流式输出。最终跑完隐藏的过程重新渲染成浅色占位。
-
-![image-20260904020809983](img/image-20260904020809983.png)
+<img src="img/image-20260904020809983.png" alt="image-20260904020809983" style="zoom:40%;" />
 
 想看被隐藏了的过程？一个按键 `Ctrl+Alt+R` 即可展开最近一轮：
 
-![image-20260904020905103](img/image-20260904020905103.png)
+<img src="img/image-20260904020905103.png" alt="image-20260904020905103" style="zoom:30%;" />
 
 而 `Ctrl+Alt+S` 能展开更早的轮次：
 
-![image-20260904020952909](img/image-20260904020952909.png)
+<img src="img/PixPin_2026-09-04_02-44-45.png" alt="PixPin_2026-09-04_02-44-45" style="zoom:45%;" />
 
 ## 特性
 
@@ -49,7 +44,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 
 `/zen` 打开设置面板：
 
-![image-20260904021017875](img/image-20260904021017875.png)
+<img src="img/PixPin_2026-09-04_02-43-34.png" alt="PixPin_2026-09-04_02-43-34" style="zoom:45%;" />
 
 除了 **focus mode 开关**之外，还有两个开关：
 
@@ -68,7 +63,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 
 一轮还在跑时 `/zen` 和三个快捷键都会被挡住，结束后再用，避免改到一半的流式输出。
 
-> 发生 **compact**（自动或 `/compact`）或切换分支后,compact / 切换之前轮次的完整过程已被摘要替换、组件已不存在,那些折叠轮无法再展开——选择框只保留其后产生的折叠轮。
+> 发生 **compact**（自动或 `/compact`）或切换分支后，compact / 切换之前轮次的完整过程已被摘要替换、组件已不存在，那些折叠轮无法再展开——选择框只保留其后产生的折叠轮。
 
 ## 配置
 
