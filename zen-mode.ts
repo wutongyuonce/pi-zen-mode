@@ -172,6 +172,9 @@ export default function zenMode(pi: ExtensionAPI) {
   // tool_execution_start events) — collection is event-driven so re-renders
   // of older rows are never counted.
   const activeToolIds = new Set<string>();
+  // tool_execution_start minus end; while >0, hideInterim still
+  // suppresses text so "I'll call X" does not sit next to hidden tools.
+  let toolsInFlight = 0;
 
   let activeTui: TUI | undefined;
   let activeTheme: Theme | undefined;
@@ -247,6 +250,21 @@ export default function zenMode(pi: ExtensionAPI) {
   }
   function visibleThinking(m: AssistantMessage): ContentPart[] {
     return contentOf(m).filter((p) => p.type === "thinking" && (p.thinking ?? "").trim());
+  }
+
+  function hasToolCallPart(m: AssistantMessage): boolean {
+    return contentOf(m).some((p) => p.type === "toolCall");
+  }
+
+  /** Text to show live while busy. hideInterim still drops text that shares
+   * a message with tool calls, and all text while tools are running. Once
+   * tools settle (or there never were any), remaining text is the answer
+   * and streams through the original renderer like thinking. */
+  function shouldStreamText(message: AssistantMessage): boolean {
+    if (!config.hideInterimText) return true;
+    if (toolsInFlight > 0) return false;
+    if (hasToolCallPart(message)) return false;
+    return true;
   }
 
   function filterMessage(
@@ -537,7 +555,7 @@ export default function zenMode(pi: ExtensionAPI) {
         typeof ts === "number" || typeof ts === "string" ? `m:${ts}` : undefined;
       capture("assistant", this, id);
       const includeThinking = !config.hideThinking;
-      const includeText = !config.hideInterimText;
+      const includeText = shouldStreamText(message);
       if (!includeThinking && !includeText) {
         self.contentContainer.clear();
         return;
@@ -586,8 +604,10 @@ export default function zenMode(pi: ExtensionAPI) {
   /* ---------------- lifecycle ---------------- */
 
   function beginRun() {
+    const alreadyBusy = busy;
     busy = true;
     installPatches();
+    if (!alreadyBusy) toolsInFlight = 0;
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
   }
@@ -625,6 +645,7 @@ export default function zenMode(pi: ExtensionAPI) {
     // Snapshot the tools Pi actually started in this epoch before clearing.
     const confirmed = new Set(activeToolIds);
     activeToolIds.clear();
+    toolsInFlight = 0;
     if (deferTimer) clearTimeout(deferTimer);
     deferTimer = undefined;
 
@@ -653,6 +674,7 @@ export default function zenMode(pi: ExtensionAPI) {
     collector = undefined;
     busy = false;
     activeToolIds.clear();
+    toolsInFlight = 0;
     presentedCollector = undefined;
     collectors.length = 0;
     if (deferTimer) clearTimeout(deferTimer);
@@ -1041,11 +1063,32 @@ export default function zenMode(pi: ExtensionAPI) {
     const evt = _event as { toolCallId?: string; toolName?: string };
     const id = evt.toolCallId ?? evt.toolName;
     if (id) activeToolIds.add(id);
+    toolsInFlight++;
+    // Pre-tool prose that already streamed is interim now — hide it.
+    if (config.hideInterimText && collector) {
+      for (const entry of collector.comps) {
+        if (entry.kind !== "assistant") continue;
+        const comp = entry.component as AssistantMessageComponent;
+        const message = assistantStates.get(comp);
+        if (!message) continue;
+        try {
+          originalAssistantUpdate.call(
+            comp,
+            filterMessage(message, !config.hideThinking, false),
+            false,
+          );
+        } catch {
+          // ignore mid-teardown
+        }
+      }
+      activeTui?.requestRender(true);
+    }
   });
 
   pi.on("tool_execution_end", async (_event, ctx) => {
     if (!config.enabled || !busy) return;
     activeCtx = ctx;
+    toolsInFlight = Math.max(0, toolsInFlight - 1);
     maybeFinalize(ctx);
   });
 
