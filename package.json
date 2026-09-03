@@ -1,0 +1,37 @@
+{
+  "name": "pi-zen-mode",
+  "version": "0.1.0",
+  "description": "Distraction-free focus mode for Pi: nothing while it runs, only the final answer when it's done.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wutongyuonce/pi-zen-mode.git"
+  },
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "focus-mode",
+    "zen",
+    "tui"
+  ],
+  "files": [
+    "zen-mode.ts",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./zen-mode.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
