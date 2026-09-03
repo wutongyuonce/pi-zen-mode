@@ -1,12 +1,12 @@
 /**
  * zen-mode — Focus / distraction-free output for pi-tui.
  *
- * While an agent run is streaming, the chat area shows nothing new (only the
- * native working loader keeps spinning). When the run finishes, intermediate
- * content is re-presented as collapsed one-line placeholders (thinking blocks,
- * tool calls, interim replies) and only the final answer text is rendered in
- * full. ctrl+alt+r (configurable) flips the last run between collapsed
- * placeholders and the raw transcript.
+ * The three hide* switches control what is suppressed WHILE a run streams.
+ * Unhidden categories keep their native renderer (thinking UI, tool rows,
+ * assistant text) live. Hidden categories stay blank until the run ends,
+ * then become one-line placeholders. The final answer always appears when
+ * the run finishes. ctrl+alt+r (configurable) restores the captured original
+ * renderer for the last run — native thinking UI included.
  *
  * Compatibility:
  * - Render hooks are only patched while zen logic needs them and always
@@ -40,7 +40,6 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import {
   Container,
-  Markdown,
   SettingsList,
   Spacer,
   Text,
@@ -129,35 +128,6 @@ interface RunCollector {
   seen: Set<string>;
 }
 
-type MarkdownOptions = NonNullable<ConstructorParameters<typeof Markdown>[5]>;
-
-function makeTransformOptions(
-  transformers: unknown[] | undefined,
-): MarkdownOptions | undefined {
-  if (!transformers || transformers.length === 0) return undefined;
-  return {
-    transform(markdown: string, availableWidth: number) {
-      let out = markdown;
-      for (const transformer of transformers) {
-        try {
-          const fn = transformer as (
-            text: string,
-            ctx: { messageType: string; isStreaming: boolean; availableWidth: number },
-          ) => string;
-          const next = fn(out, {
-            messageType: "assistant",
-            isStreaming: false,
-            availableWidth,
-          });
-          if (typeof next === "string") out = next;
-        } catch {
-          // one broken transformer must not break rendering
-        }
-      }
-      return out;
-    },
-  } as unknown as MarkdownOptions;
-}
 
 /* ------------------------------------------------------------------ */
 /* Extension state                                                     */
@@ -279,6 +249,26 @@ export default function zenMode(pi: ExtensionAPI) {
     return contentOf(m).filter((p) => p.type === "thinking" && (p.thinking ?? "").trim());
   }
 
+  function filterMessage(
+    message: AssistantMessage,
+    includeThinking: boolean,
+    includeText: boolean,
+  ): AssistantMessage {
+    const content = contentOf(message).filter((p) => {
+      if (p.type === "thinking") return includeThinking;
+      if (p.type === "text") return includeText;
+      return true;
+    });
+    return { ...message, content: content as AssistantMessage["content"] };
+  }
+
+  function prependChild(container: Container, child: Spacer | Text) {
+    const kids = container.children.slice();
+    container.clear();
+    container.addChild(child);
+    for (const k of kids) container.addChild(k);
+  }
+
   /* ---------------- presentation ---------------- */
 
   function isFinalTextEntry(col: RunCollector, idx: number): boolean {
@@ -300,83 +290,57 @@ export default function zenMode(pi: ExtensionAPI) {
     const message = assistantStates.get(comp) ?? self.lastMessage;
     if (!message) return;
     const container = self.contentContainer;
-    container.clear();
-
     const textParts = visibleTextParts(message);
     const thinkingParts = visibleThinking(message);
     const finalText = isFinalTextEntry(col, idx);
-    let added = false;
+    const includeThinking = !config.hideThinking;
+    const includeText = finalText || !config.hideInterimText;
 
-    // Thinking blocks
-    if (thinkingParts.length > 0) {
-      if (!added) {
+    // Visible categories go through the captured original renderer so
+    // compact-thinking / native thinking UI is preserved. Hidden ones
+    // become one-line placeholders afterwards.
+    if (includeThinking || includeText) {
+      originalAssistantUpdate.call(
+        comp,
+        filterMessage(message, includeThinking, includeText),
+        false,
+      );
+    } else {
+      container.clear();
+    }
+
+    if (!includeThinking && thinkingParts.length > 0) {
+      const joined = thinkingParts.map((p) => (p.thinking ?? "").trim());
+      const words = joined.reduce((a, t) => a + t.split(/\s+/).length, 0);
+      const runs = joined.length;
+      const line = new Text(
+        think(`💭 ${runs > 1 ? `${runs} 段思考` : "思考"}已折叠 · ${words} 词`),
+        self.outputPad,
+        0,
+      );
+      if (container.children.length > 0) {
+        prependChild(container, line);
+        prependChild(container, new Spacer(1));
+      } else {
         container.addChild(new Spacer(1));
-        added = true;
-      }
-      if (config.hideThinking) {
-        const joined = thinkingParts.map((p) => (p.thinking ?? "").trim());
-        const words = joined.reduce((a, t) => a + t.split(/\s+/).length, 0);
-        const runs = joined.length;
-        container.addChild(
-          new Text(
-            think(`💭 ${runs > 1 ? `${runs} 段思考` : "思考"}已折叠 · ${words} 词`),
-            self.outputPad,
-            0,
-          ),
-        );
-      } else {
-        // Show thinking in full (native-ish markdown).
-        container.addChild(
-          new Markdown(
-            thinkingParts.map((p) => (p.thinking ?? "").trim()).join("\n\n"),
-            self.outputPad,
-            0,
-            self.markdownTheme as never,
-            undefined,
-            makeTransformOptions(self.markdownTransformers),
-          ),
-        );
+        container.addChild(line);
       }
     }
 
-    // Text parts
-    if (textParts.length > 0) {
-      if (finalText || !config.hideInterimText) {
-        if (!added) {
-          container.addChild(new Spacer(1));
-          added = true;
-        }
-        for (const part of textParts) {
-          container.addChild(
-            new Markdown(
-              (part.text ?? "").trim(),
-              self.outputPad,
-              0,
-              self.markdownTheme as never,
-              undefined,
-              makeTransformOptions(self.markdownTransformers),
-            ),
-          );
-        }
-      } else {
-        if (!added) {
-          container.addChild(new Spacer(1));
-          added = true;
-        }
-        const firstLine = (textParts[0]?.text ?? "").trim().split("\n")[0];
-        const preview = firstLine.length > 140 ? firstLine.slice(0, 140) + "…" : firstLine;
-        container.addChild(
-          new Text(
-            dim(`📝 中间回复已折叠${preview ? ` · ${preview}` : ""}`),
-            self.outputPad,
-            0,
-          ),
-        );
-      }
+    if (!includeText && textParts.length > 0) {
+      const firstLine = (textParts[0]?.text ?? "").trim().split("\n")[0];
+      const preview = firstLine.length > 140 ? firstLine.slice(0, 140) + "…" : firstLine;
+      if (container.children.length === 0) container.addChild(new Spacer(1));
+      container.addChild(
+        new Text(
+          dim(`📝 中间回复已折叠${preview ? ` · ${preview}` : ""}`),
+          self.outputPad,
+          0,
+        ),
+      );
     }
 
-    // Nothing visible rendered — surface errors like the built-in.
-    if (!added) {
+    if (container.children.length === 0) {
       const stop = message.stopReason;
       if (stop === "aborted" || stop === "error") {
         const err =
@@ -478,6 +442,13 @@ export default function zenMode(pi: ExtensionAPI) {
     activeTui?.requestRender(true);
   }
 
+  function refreshCollapsedRuns() {
+    for (const col of collectors) {
+      if (revealed.get(col) === true) continue;
+      presentCollector(col);
+    }
+  }
+
   /** Full transcript of one collector (original renderers). */
   function revealCollector(col: RunCollector) {
     for (const entry of col.comps) {
@@ -557,14 +528,25 @@ export default function zenMode(pi: ExtensionAPI) {
         return;
       }
 
-      // Zen + running: keep this message blank until the run finishes. A
-      // message is collected once (by timestamp) even if pi streams many
-      // updates or rebuilds the component.
-      self.contentContainer.clear();
+      // Zen + running: hide only the categories whose switches are on.
+      // Unhidden thinking/text stream through the original renderer so the
+      // native (or compact-thinking) UI stays intact. A message is collected
+      // once (by timestamp) even if pi streams many updates.
       const ts = message.timestamp;
       const id =
         typeof ts === "number" || typeof ts === "string" ? `m:${ts}` : undefined;
       capture("assistant", this, id);
+      const includeThinking = !config.hideThinking;
+      const includeText = !config.hideInterimText;
+      if (!includeThinking && !includeText) {
+        self.contentContainer.clear();
+        return;
+      }
+      originalAssistantUpdate.call(
+        this,
+        filterMessage(message, includeThinking, includeText),
+        isStreaming,
+      );
     } catch {
       originalAssistantUpdate.call(this, message, isStreaming);
     }
@@ -787,19 +769,19 @@ export default function zenMode(pi: ExtensionAPI) {
       },
       {
         id: "hideThinking",
-        label: "💭 折叠思考块 · thinking",
+        label: "💭 运行时隐藏思考 · thinking",
         currentValue: config.hideThinking ? "on" : "off",
         values: ["on", "off"],
       },
       {
         id: "hideTools",
-        label: "⚙ 折叠工具调用 · tools",
+        label: "⚙ 运行时隐藏工具 · tools",
         currentValue: config.hideTools ? "on" : "off",
         values: ["on", "off"],
       },
       {
         id: "hideInterimText",
-        label: "📝 折叠中间回复 · interim",
+        label: "📝 运行时隐藏中间回复 · interim",
         currentValue: config.hideInterimText ? "on" : "off",
         values: ["on", "off"],
       },
@@ -813,12 +795,15 @@ export default function zenMode(pi: ExtensionAPI) {
     } else if (id === "hideThinking") {
       config.hideThinking = on;
       saveConfig();
+      refreshCollapsedRuns();
     } else if (id === "hideTools") {
       config.hideTools = on;
       saveConfig();
+      refreshCollapsedRuns();
     } else if (id === "hideInterimText") {
       config.hideInterimText = on;
       saveConfig();
+      refreshCollapsedRuns();
     }
     if (activeTui) activeTui.requestRender(true);
   }
@@ -845,7 +830,7 @@ export default function zenMode(pi: ExtensionAPI) {
             const mark = theme.fg("accent", frames[frame]);
             return [
               `${mark}  ${theme.fg("accent", theme.bold("zen · Focus Mode"))}`,
-              theme.fg("muted", "运行中聊天区只显示加载动画;结束后中间内容收成占位,只留最终答案。"),
+              theme.fg("muted", "三个开关控制运行时藏什么;关掉的那一类走原生 UI。结束后隐藏项收成占位,最终答案照常出现。"),
               "",
             ];
           }
@@ -1080,7 +1065,7 @@ export default function zenMode(pi: ExtensionAPI) {
       setEnabled(next, ctx);
       ctx.ui.notify(
         next
-          ? `zen · focus mode on — 运行中内容隐藏,结束时折叠展示 (${revealKey} 展开过程)`
+          ? `zen · focus mode on — 运行时按开关隐藏 (${revealKey} 展开本轮)`
           : "zen · focus mode off",
       );
     },

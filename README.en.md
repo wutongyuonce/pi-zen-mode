@@ -12,16 +12,16 @@
 
 ---
 
-Every turn in Pi floods the chat with reasoning blocks, tool calls and interim notes. **Zen-mode** silences all of it: while a run is streaming the chat area stays clean — just the native loader spinning — and when it finishes, the process is collapsed into a few dim one-liners while the final answer is rendered in full. One keypress unfolds the whole run again.
+Every turn in Pi floods the chat with reasoning blocks, tool calls and interim notes. **Zen-mode** hides whichever of those you switch off: unhidden categories keep their native UI live (thinking blocks stay looking like thinking blocks); hidden ones vanish as they appear, collapse to a dim one-liner when the run ends, and the final answer still shows. One keypress unfolds the hidden process again.
 
 <img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
 
 ## Features
 
-- **Silent while running** — nothing but the loader during a turn
-- **Answer-first when done** — full final answer, one-line placeholders for the rest
-- **Reveal on demand** — `ctrl+alt+r` unfolds / refolds the last run
-- **Independent toggles** — thinking, tool calls and interim replies collapse separately
+- **Hide while running, per switch** — thinking / tools / interim replies each choose live vs hidden
+- **Native UI for what's visible** — unhidden thinking keeps compact-thinking / built-in styling
+- **Answer-first when done** — full final answer, one-line placeholders for what was hidden
+- **Reveal on demand** — `ctrl+alt+r` restores the last run through the original renderer
 - **Non-invasive** — coexists with renderer extensions like [pi-compact-thinking](https://github.com/nostalfinals/pi-compact-thinking); when zen is off it never touches their rendering
 
 ## Install
@@ -69,13 +69,13 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
 
 | Key | Meaning |
 | --- | --- |
-| `enabled` | Master switch (everything is hidden while running regardless of the sub-toggles) |
-| `hideThinking` | Collapse thinking blocks to a one-line `💭` after the run; `false` renders them in full |
-| `hideTools` | Collapse tool calls to a one-line `⚙`; `false` uses the built-in full rendering |
-| `hideInterimText` | Collapse interim replies (non-final text); `false` renders them in full |
+| `enabled` | Master switch |
+| `hideThinking` | Hide thinking while running; collapse to a one-line `💭` when done; `false` streams the native thinking UI |
+| `hideTools` | Hide tool calls while running; collapse to a one-line `⚙` when done; `false` streams native tool rows |
+| `hideInterimText` | Hide interim replies while running; collapse to a one-liner when done; `false` streams them live |
 | `toggleKey` / `revealKey` / `pickerKey` | The three shortcuts — any valid Pi keybinding string |
 
-The three sub-toggles only affect **presentation after the run**; hiding *while* running is controlled by `enabled`. `/reload` after changes.
+The three sub-toggles control **what is hidden while a run streams**. Turn one off and that category uses the native renderer immediately; `ctrl+alt+r` also reveals through the original renderer. `/reload` after changes.
 
 ## Compatibility
 
