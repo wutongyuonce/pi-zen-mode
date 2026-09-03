@@ -116,12 +116,12 @@ type TrackKind = "assistant" | "tool";
 interface TrackedEntry {
   kind: TrackKind;
   component: object;
+  id?: string;
 }
 
 interface RunCollector {
   comps: TrackedEntry[];
   startedAt: number;
-  lastEventAt: number;
   finalTextIndex: number;
   // IDs of already-collected messages/tool calls, so a run is never
   // double-counted when pi recreates a component instance.
@@ -215,7 +215,6 @@ export default function zenMode(pi: ExtensionAPI) {
       collector = {
         comps: [],
         startedAt: Date.now(),
-        lastEventAt: Date.now(),
         finalTextIndex: -1,
         seen: new Set(),
       };
@@ -226,14 +225,21 @@ export default function zenMode(pi: ExtensionAPI) {
   function capture(kind: TrackKind, component: object, id?: string): RunCollector {
     const col = ensureCollector();
     if (id) {
-      if (col.seen.has(id)) return col;
+      if (col.seen.has(id)) {
+        const entry = col.comps.find((e) => e.id === id);
+        if (entry && entry.component !== component) {
+          compCollector.delete(entry.component);
+          entry.component = component;
+          compCollector.set(component, col);
+        }
+        return col;
+      }
       col.seen.add(id);
     } else if (col.comps.some((e) => e.component === component)) {
       return col;
     }
-    col.comps.push({ kind, component });
+    col.comps.push({ kind, component, id });
     compCollector.set(component, col);
-    col.lastEventAt = Date.now();
     return col;
   }
 
@@ -278,11 +284,7 @@ export default function zenMode(pi: ExtensionAPI) {
   }
 
   /** Collapsed presentation for one assistant message. */
-  function presentAssistant(
-    comp: AssistantMessageComponent,
-    _col: RunCollector,
-    _idx: number,
-  ) {
+  function presentAssistant(comp: AssistantMessageComponent) {
     const self = assistantInternals(comp);
     const message = assistantStates.get(comp) ?? self.lastMessage;
     if (!message) return;
@@ -394,9 +396,9 @@ export default function zenMode(pi: ExtensionAPI) {
     });
     col.finalTextIndex = finalTextIndex;
 
-    col.comps.forEach((entry, idx) => {
+    col.comps.forEach((entry) => {
       if (entry.kind === "assistant") {
-        presentAssistant(entry.component as AssistantMessageComponent, col, idx);
+        presentAssistant(entry.component as AssistantMessageComponent);
       } else {
         // Tools are rendered lazily by the patched render() — refresh them so
         // placeholders appear.
@@ -413,30 +415,6 @@ export default function zenMode(pi: ExtensionAPI) {
       if (revealed.get(col) === true) continue;
       presentCollector(col);
     }
-    // Live run: re-apply filters without presenting a footer yet.
-    if (collector && busy) {
-      for (const entry of collector.comps) {
-        if (entry.kind === "assistant") {
-          const comp = entry.component as AssistantMessageComponent;
-          const message =
-            assistantStates.get(comp) ?? assistantInternals(comp).lastMessage;
-          if (!message) continue;
-          const includeThinking = !config.hideThinking;
-          try {
-            originalAssistantUpdate.call(
-              comp,
-              filterMessage(message, includeThinking),
-              assistantInternals(comp).isStreaming,
-            );
-          } catch {
-            // mid-teardown
-          }
-        } else {
-          safeInvalidate(entry.component as ToolExecutionComponent);
-        }
-      }
-      activeTui?.requestRender(true);
-    }
   }
 
   /** Full transcript of one collector (original renderers). */
@@ -450,7 +428,7 @@ export default function zenMode(pi: ExtensionAPI) {
             originalAssistantUpdate.call(comp, message, false);
           } catch {
             // fall back to collapsed presentation on error
-            presentAssistant(comp, col, col.comps.indexOf(entry));
+            presentAssistant(comp);
           }
         }
       } else {
@@ -502,15 +480,12 @@ export default function zenMode(pi: ExtensionAPI) {
       if (owned && owned !== collector) {
         // Component of an earlier (presented) run got touched again: keep
         // that run's own presentation instead of re-collecting it.
-        const idx = owned.comps.findIndex((e) => e.component === this);
-        if (idx >= 0) {
-          if (revealed.get(owned) === true) {
-            originalAssistantUpdate.call(this, message, isStreaming);
-          } else {
-            presentAssistant(this, owned, idx);
-          }
-          return;
+        if (revealed.get(owned) === true) {
+          originalAssistantUpdate.call(this, message, isStreaming);
+        } else {
+          presentAssistant(this);
         }
+        return;
       }
 
       if (!(config.enabled && busy)) {
@@ -673,6 +648,7 @@ export default function zenMode(pi: ExtensionAPI) {
       installPatches();
     } else {
       restoreAllReveal();
+      uninstallPatches();
     }
     syncZenStatus();
     if (activeTui) activeTui.requestRender(true);
@@ -680,26 +656,10 @@ export default function zenMode(pi: ExtensionAPI) {
 
   /* ---------------- per-run reveal ---------------- */
 
-  function reCollapseCollector(col: RunCollector) {
-    for (const entry of col.comps) {
-      if (entry.kind === "assistant") {
-        presentAssistant(
-          entry.component as AssistantMessageComponent,
-          col,
-          col.comps.indexOf(entry),
-        );
-      } else {
-        safeInvalidate(entry.component as ToolExecutionComponent);
-      }
-    }
-    addCollapseFooter(col);
-  }
-
   function setRunRevealed(col: RunCollector, on: boolean) {
     revealed.set(col, on);
     if (on) revealCollector(col);
-    else reCollapseCollector(col);
-    activeTui?.requestRender(true);
+    else presentCollector(col);
   }
 
   function toggleReveal() {
@@ -715,6 +675,9 @@ export default function zenMode(pi: ExtensionAPI) {
    * components are gone, so their collapsed content can no longer be shown.
    * Drop the history so the picker never offers unexpandable runs. */
   function pruneZenHistory() {
+    if (deferTimer) clearTimeout(deferTimer);
+    deferTimer = undefined;
+    busy = false;
     collector = undefined;
     collectors.length = 0;
     presentedCollector = undefined;
@@ -936,21 +899,6 @@ export default function zenMode(pi: ExtensionAPI) {
       return { render: () => [], invalidate() {} };
     });
     syncZenStatus();
-
-    // On resume, pi may have rebuilt components before we installed patches.
-    // Re-render previously hidden collectors with the current presentation.
-    if (presentedCollector) {
-      for (const entry of presentedCollector.comps) {
-        if (entry.kind === "assistant") {
-          presentAssistant(
-            entry.component as AssistantMessageComponent,
-            presentedCollector,
-            presentedCollector.comps.indexOf(entry),
-          );
-        }
-      }
-      activeTui?.requestRender(true);
-    }
   });
 
   pi.on("session_tree", (_event, ctx) => {
@@ -1008,9 +956,8 @@ export default function zenMode(pi: ExtensionAPI) {
     }
   });
 
-  // Tool rows are collected from execution events, not from render() calls:
-  // Pi re-renders older rows while a new run streams and those rows are not
-  // part of this run.
+  // tool_execution_start is the allow-list for pruneUnconfirmedTools:
+  // patchedToolRender also sees older rows Pi re-paints during a run.
   pi.on("tool_execution_start", async (_event, ctx) => {
     if (!config.enabled || !busy) return;
     activeCtx = ctx;

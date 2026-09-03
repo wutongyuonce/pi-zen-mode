@@ -57,7 +57,7 @@ zen 开着时，思考和工具**一律进 collector**。`hideThinking` / `hideT
 ### 2.5 补丁是外层包装，zen 关掉就卸掉
 
 - 第一次需要时才 `installPatches`（第一次 busy 或打开 zen），保证套在当时已装的扩展外面。
-- zen 关掉：`uninstallPatches` 把 prototype 改回去。compact-thinking 等恢复原样。
+- zen 关掉：先 `restoreAllReveal` 再 `uninstallPatches`，prototype 改回去。compact-thinking 等恢复原样。
 - zen 开着时本扩展是最外层，内层输出跟着被藏或跟着被展开。
 
 ### 2.6 一轮还在跑，不准改 zen
@@ -72,7 +72,7 @@ zen 开着时，思考和工具**一律进 collector**。`hideThinking` / `hideT
 
 ### 2.8 历史以「还在屏幕上的组件」为界
 
-`session_tree` / `session_compact` 会重建 transcript，旧组件没了，展开会指空。收到这两个事件就 `pruneZenHistory()`，选择框不再列出 compact / 切分支之前的轮。
+`session_tree` / `session_compact` 会重建 transcript，旧组件没了，展开会指空。收到这两个事件就 `pruneZenHistory()`（顺带 `busy=false`、清 defer timer，避免 compact 发生在一轮当中时 `/zen` 被永久挡住），选择框不再列出 compact / 切分支之前的轮。
 
 ---
 
