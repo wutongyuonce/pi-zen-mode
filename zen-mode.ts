@@ -414,8 +414,16 @@ export default function zenMode(pi: ExtensionAPI) {
     if (counts.thinking > 0) parts.push(`${counts.thinking} 段思考`);
     if (counts.interim > 0) parts.push(`${counts.interim} 条中间回复`);
     self.contentContainer.addChild(new Spacer(1));
+    const olderHint =
+      collectors.some((c) => c !== col)
+        ? ` · ${pickerKey} 展开更早`
+        : "";
     self.contentContainer.addChild(
-      new Text(dim(`zen · ${parts.join(" / ")}已折叠 — ${revealKey} 展开`), self.outputPad, 0),
+      new Text(
+        dim(`zen · ${parts.join(" / ")}已折叠 — ${revealKey} 展开本轮${olderHint}`),
+        self.outputPad,
+        0,
+      ),
     );
   }
 
