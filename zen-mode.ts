@@ -407,7 +407,6 @@ export default function zenMode(pi: ExtensionAPI) {
     });
 
     addCollapseFooter(col);
-    activeTui?.requestRender(true);
   }
 
   function refreshCollapsedRuns() {
@@ -435,7 +434,6 @@ export default function zenMode(pi: ExtensionAPI) {
         safeInvalidate(entry.component as ToolExecutionComponent);
       }
     }
-    activeTui?.requestRender(true);
   }
 
   /* ---------------- patched renderers ---------------- */
@@ -596,6 +594,7 @@ export default function zenMode(pi: ExtensionAPI) {
     presentCollector(col);
     collectors.push(col);
     presentedCollector = col;
+    activeTui?.requestRender(true);
   }
 
   function scheduleDeferredFinalize() {
@@ -660,6 +659,7 @@ export default function zenMode(pi: ExtensionAPI) {
     revealed.set(col, on);
     if (on) revealCollector(col);
     else presentCollector(col);
+    activeTui?.requestRender(true);
   }
 
   function toggleReveal() {
@@ -745,7 +745,6 @@ export default function zenMode(pi: ExtensionAPI) {
       saveConfig();
       refreshCollapsedRuns();
     }
-    if (activeTui) activeTui.requestRender(true);
   }
 
   async function openZenPanel(ctx: ExtensionContext) {
@@ -861,7 +860,6 @@ export default function zenMode(pi: ExtensionAPI) {
           const index = Number(id.replace("zen-run-", ""));
           const col = collectors[index];
           if (col) setRunRevealed(col, newValue === "展开");
-          tui.requestRender();
         },
         () => done(undefined),
       );
