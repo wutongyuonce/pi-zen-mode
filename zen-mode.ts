@@ -257,15 +257,16 @@ export default function zenMode(pi: ExtensionAPI) {
     return contentOf(m).some((p) => p.type === "toolCall");
   }
 
-  /** Text to show live while busy. hideInterim still drops text that shares
-   * a message with tool calls, and all text while tools are running. Once
-   * tools settle (or there never were any), remaining text is the answer
-   * and streams through the original renderer like thinking. */
+  /** Text to show live while busy.
+   * hideInterim: paint nothing until this run has started tools AND they
+   * have all finished — pre-tool "I'll call X" never reaches the screen, so
+   * it cannot flash. The post-tool answer then streams like thinking.
+   * A no-tool turn stays blank until presentCollector (one-shot answer). */
   function shouldStreamText(message: AssistantMessage): boolean {
     if (!config.hideInterimText) return true;
     if (toolsInFlight > 0) return false;
     if (hasToolCallPart(message)) return false;
-    return true;
+    return activeToolIds.size > 0;
   }
 
   function filterMessage(
