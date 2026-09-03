@@ -10,15 +10,21 @@
 </p>
 Every turn in Pi floods the chat with reasoning and tool calls. **Zen-mode** hides those two kinds of process output with switches: turn a switch off and that category keeps its native UI (thinking blocks stay looking like thinking blocks); turn it on and the output is hidden. The model's words always stream as usual. When the run finishes, what was hidden is re-rendered as a dim one-line placeholder.
 
-<img src="img/image-20260904020809983.png" alt="image-20260904020809983" style="zoom:40%;" />
+<p align="center">
+  <img src="img/image-20260904020809983.png" alt="zen collapsed run" width="480" />
+</p>
 
 Want to see the hidden process? `Ctrl+Alt+R` unfolds the latest run:
 
-<img src="img/image-20260904020905103.png" alt="image-20260904020905103" style="zoom:30%;" />
+<p align="center">
+  <img src="img/image-20260904020905103.png" alt="zen reveal latest run" width="560" />
+</p>
 
 `Ctrl+Alt+S` unfolds earlier runs:
 
-<img src="img/PixPin_2026-09-04_02-44-45.png" alt="PixPin_2026-09-04_02-44-45" style="zoom:45%;" />
+<p align="center">
+  <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="560" />
+</p>
 
 ## Features
 
@@ -44,7 +50,9 @@ Update with `pi update --extensions`.
 
 `/zen` opens the settings panel:
 
-<img src="img/PixPin_2026-09-04_02-43-34.png" alt="PixPin_2026-09-04_02-43-34" style="zoom:45%;" />
+<p align="center">
+  <img src="img/PixPin_2026-09-04_02-43-34.png" alt="zen settings panel" width="560" />
+</p>
 
 Besides the **focus mode** switch, there are two more:
 
