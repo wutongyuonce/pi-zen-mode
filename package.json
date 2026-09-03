@@ -1,6 +1,6 @@
 {
   "name": "pi-zen-mode",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Distraction-free focus mode for Pi: nothing while it runs, only the final answer when it's done.",
   "license": "MIT",
   "repository": {
@@ -17,6 +17,7 @@
   ],
   "files": [
     "zen-mode.ts",
+    "img",
     "README.md",
     "README.en.md",
     "LICENSE"
