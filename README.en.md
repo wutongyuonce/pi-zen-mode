@@ -1,4 +1,4 @@
-<h1 align="center">zen-mode</h1>
+<h1 align="center">Zen-mode</h1>
 
 <p align="center">
   Nothing while it runs — only the answer when it's done.
@@ -12,22 +12,9 @@
 
 ---
 
-Every turn in Pi floods the chat with reasoning blocks, tool calls and interim notes. **zen-mode** silences all of it: while a run is streaming the chat area stays clean — just the native loader spinning — and when it finishes, the process is collapsed into a few dim one-liners while the final answer is rendered in full. One keypress unfolds the whole run again.
+Every turn in Pi floods the chat with reasoning blocks, tool calls and interim notes. **Zen-mode** silences all of it: while a run is streaming the chat area stays clean — just the native loader spinning — and when it finishes, the process is collapsed into a few dim one-liners while the final answer is rendered in full. One keypress unfolds the whole run again.
 
-```
-  default                                zen
-──────────────────────────────      ──────────────────────────────
- you: find every TODO in repo       you: find every TODO in repo
-
-     ⏳ (loader spinning)
-     ⏳ bash grep TODO
-     ✓ 42 found
-     💭 (a screen of reasoning)      ⚙ bash — ok · 42 lines
-     ⏳ read config.json             💭 thinking collapsed · 318 words
-     full tool output…
-     "let me check one more…"
-     (final answer)                   (final answer, full)
-```
+<img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
 
 ## Features
 
@@ -50,6 +37,8 @@ Then `/reload` (or restart Pi).
 Update with `pi update --extensions`.
 
 ## Usage
+
+![PixPin_2026-09-03_22-17-07](img/PixPin_2026-09-03_22-17-07.png)
 
 | Key | Action |
 | --- | --- |

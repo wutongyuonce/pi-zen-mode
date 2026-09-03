@@ -1,10 +1,11 @@
-<h1 align="center">zen-mode</h1>
+<h1 align="center">Zen-mode</h1>
 
 <p align="center">
-  运行中只显示转圈;结束后只留答案。
+  运行中只显示转圈，结束后只留答案。
   <br>
   <i>Distraction-free focus mode for <a href="https://github.com/earendil-works/pi-mono">Pi</a></i>
 </p>
+
 
 <p align="center">
   <a href="README.md">中文</a> · <a href="README.en.md">English</a>
@@ -12,22 +13,9 @@
 
 ---
 
-运行 pi 时,每轮对话会刷出大段 reasoning、工具调用、中间小结……**zen-mode** 把这些全部藏起来:回合进行中聊天区保持安静,只有一行 loader 在转;跑完后中间过程收成几行浅色占位,最终答案完整呈现。想看过程?一个按键即可展开。
+运行 pi 时，每轮对话会刷出大段 reasoning、工具调用、中间小结… **Zen-mode** 把这些全部藏起来：回合进行中聊天区保持安静，只有一行 loader 在转；跑完后中间过程收成几行浅色占位，最终答案完整呈现。想看过程？一个按键即可展开：
 
-```
- 普通模式                              zen 模式
-──────────────────────────────      ──────────────────────────────
- 你: 找出项目里所有 TODO            你: 找出项目里所有 TODO
-
-    ⏳ (loader 在转)
-    ⏳ bash grep TODO
-    ✓ 42 处
-    💭 (一整屏 reasoning)            ⚙ bash — ok · 42 lines
-    ⏳ read config.json              💭 思考已折叠 · 318 词
-    工具输出全文…
-    中途小结「让我再看看…」
-    (最终答案)                        (最终答案全文)
-```
+<img src="img/PixPin_2026-09-03_22-26-25.png" alt="PixPin_2026-09-03_22-26-25" style="zoom:40%;" />
 
 ## 特性
 
@@ -43,13 +31,15 @@
 pi install git:github.com/wutongyuonce/pi-zen-mode
 ```
 
-然后 `/reload`(或重启 pi)。
+然后 `/reload`（或重启 pi）。
 
 > 只想手动试:把 `zen-mode.ts` 放进 `~/.pi/agent/extensions/`,`/reload` 即可。
 
-更新:`pi update --extensions`
+更新：`pi update --extensions`
 
 ## 用法
+
+![PixPin_2026-09-03_22-17-07](img/PixPin_2026-09-03_22-17-07.png)
 
 | 按键 | 作用 |
 | --- | --- |
@@ -57,7 +47,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | `ctrl+alt+r` | 展开 / 收起最近一轮被折叠的过程 |
 | `/zen` | 打开设置面板(风格与 `/tools` 一致) |
 
-`ctrl+o`(pi 原生)仍可单独展开某个工具的完整输出。
+`ctrl+o`（pi 原生）仍可单独展开某个工具的完整输出。
 
 ## 配置
 
@@ -82,13 +72,13 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | `hideInterimText` | 结束后的中间回复(非最终答案)折成一行;`false` 则全文显示 |
 | `toggleKey` / `revealKey` | 快捷键,任意合法的 pi 键位字符串 |
 
-三个子开关只影响**结束后的展示**,运行中的隐藏由 `enabled` 决定。改完 `/reload` 生效。
+三个子开关只影响**结束后的展示**，运行中的隐藏由 `enabled` 决定。改完 `/reload` 生效。
 
 ## 兼容性
 
 - 需要 TUI 模式
-- 与 pi-compact-thinking 并存:zen 关闭时不安装任何渲染补丁,compact-thinking 行为完全不变;开启时 zen 叠在其外层一并折叠,「展开」视图遵循内层管线(装了 compact-thinking 即显示其紧凑样式)
-- 通过接管 `AssistantMessageComponent` / `ToolExecutionComponent` 渲染实现,pi 升级后内部接口变动可能需要跟进更新
+- 与 pi-compact-thinking 并存：zen 关闭时不安装任何渲染补丁，compact-thinking 行为完全不变；开启时 zen 叠在其外层一并折叠，「展开」视图遵循内层管线（装了 compact-thinking 即显示其紧凑样式）
+- 通过接管 `AssistantMessageComponent` / `ToolExecutionComponent` 渲染实现，pi 升级后内部接口变动可能需要跟进更新
 - 已在 pi `0.84.x` 测试
 
 ## License
