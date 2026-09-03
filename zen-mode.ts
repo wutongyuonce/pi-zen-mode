@@ -46,7 +46,6 @@ import {
   Text,
   type SettingItem,
   type TUI,
-  visibleWidth,
 } from "@earendil-works/pi-tui";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -656,19 +655,35 @@ export default function zenMode(pi: ExtensionAPI) {
     for (const col of seen) revealCollector(col);
   }
 
-  /* ---------------- master toggle ---------------- */
+  /* ---------------- master toggle & status ---------------- */
+
+  // Indicator shown in the extension-status channel: with the built-in footer
+  // it lands on the same line as other extension statuses; a custom footer
+  // (e.g. pi-statusline) renders it through its own extension-status surface.
+  const STATUS_KEY = "zen";
+
+  function syncZenStatus() {
+    const ctx = activeCtx;
+    if (!ctx || ctx.mode !== "tui") return;
+    if (config.enabled) {
+      ctx.ui.setStatus(STATUS_KEY, "◉ zen");
+    } else {
+      ctx.ui.setStatus(STATUS_KEY, undefined);
+    }
+  }
 
   function setEnabled(next: boolean, ctx: ExtensionContext | undefined) {
     if (config.enabled === next) return;
     config.enabled = next;
     saveConfig();
+    if (ctx) activeCtx = ctx;
     if (next) {
       installPatches();
     } else {
       restoreAllReveal();
     }
+    syncZenStatus();
     if (activeTui) activeTui.requestRender(true);
-    void ctx;
   }
 
   /* ---------------- per-run reveal ---------------- */
@@ -928,27 +943,15 @@ export default function zenMode(pi: ExtensionAPI) {
     // NOTE: patches are installed lazily (first busy run / enable) so zen
     // always wraps whatever other extensions installed during session_start.
 
-  /* The widget doubles as the render handle (empty render when zen is off)
-   * and as a right-aligned indicator chip under the editor when zen is on. */
-  ctx.ui.setWidget(
-    WIDGET_ID,
-    (tui, theme) => {
+    // Empty widget = render handle only; the visible indicator is a status
+    // item so it shares the statusline with other extensions instead of
+    // occupying its own row.
+    ctx.ui.setWidget(WIDGET_ID, (tui, theme) => {
       activeTui = tui;
       activeTheme = theme;
-      return {
-        render(width: number) {
-          if (!config.enabled) return [];
-          const label = "◉ zen";
-          const labelWidth = visibleWidth(label);
-          const pad = Math.max(1, width - labelWidth - 1);
-          const chip = theme.fg("accent", theme.bold(label));
-          return [pad > 0 ? " ".repeat(pad) + chip : chip];
-        },
-        invalidate() {},
-      };
-    },
-    { placement: "belowEditor" },
-  );
+      return { render: () => [], invalidate() {} };
+    });
+    syncZenStatus();
 
     // On resume, pi may have rebuilt components before we installed patches.
     // Re-render previously hidden collectors with the current presentation.
@@ -987,6 +990,7 @@ export default function zenMode(pi: ExtensionAPI) {
     deferTimer = undefined;
     restoreAllReveal();
     if (ctx.mode === "tui") {
+      ctx.ui.setStatus(STATUS_KEY, undefined);
       ctx.ui.setWidget(WIDGET_ID, undefined);
     }
     uninstallPatches();
