@@ -1,12 +1,13 @@
 /**
  * zen-mode — Focus / distraction-free output for pi-tui.
  *
- * The three hide* switches control what is suppressed WHILE a run streams.
- * Unhidden categories keep their native renderer (thinking UI, tool rows,
- * assistant text) live. Hidden categories stay blank until the run ends,
- * then become one-line placeholders. The final answer always appears when
- * the run finishes. ctrl+alt+r (configurable) restores the captured original
- * renderer for the last run — native thinking UI included.
+ * While zen is on, thinking / tools / interim replies are all collected.
+ * The three hide* switches only choose visibility (and thus the footer
+ * counts): unhidden categories keep their native renderer live; hidden
+ * ones stay blank until the run ends, then become one-line placeholders.
+ * Toggling a switch re-presents only the tracked components of each run.
+ * The final answer always appears when the run finishes. ctrl+alt+r
+ * restores the captured original renderer for the last run.
  *
  * Compatibility:
  * - Render hooks are only patched while zen logic needs them and always
@@ -465,6 +466,35 @@ export default function zenMode(pi: ExtensionAPI) {
       if (revealed.get(col) === true) continue;
       presentCollector(col);
     }
+    // Live run: re-apply filters without presenting a footer yet.
+    if (collector && busy) {
+      for (const entry of collector.comps) {
+        if (entry.kind === "assistant") {
+          const comp = entry.component as AssistantMessageComponent;
+          const message =
+            assistantStates.get(comp) ?? assistantInternals(comp).lastMessage;
+          if (!message) continue;
+          const includeThinking = !config.hideThinking;
+          const includeText = shouldStreamText(message);
+          try {
+            if (!includeThinking && !includeText) {
+              assistantInternals(comp).contentContainer.clear();
+            } else {
+              originalAssistantUpdate.call(
+                comp,
+                filterMessage(message, includeThinking, includeText),
+                assistantInternals(comp).isStreaming,
+              );
+            }
+          } catch {
+            // mid-teardown
+          }
+        } else {
+          safeInvalidate(entry.component as ToolExecutionComponent);
+        }
+      }
+      activeTui?.requestRender(true);
+    }
   }
 
   /** Full transcript of one collector (original renderers). */
@@ -572,29 +602,31 @@ export default function zenMode(pi: ExtensionAPI) {
 
   function patchedToolRender(this: ToolExecutionComponent, width: number) {
     try {
-      const owned = ownedByLiveRun(this);
-      if (config.enabled && config.hideTools) {
-        if (owned === collector) {
-          // Part of the run currently being hidden.
-          if (busy) return [];
-          // collector already finalized (present window) — falls through to
-          // the placeholder path below on the next render.
-        } else if (owned) {
-          // Belongs to an earlier presented run: keep its own reveal state.
-          if (revealed.get(owned) === true || (this as unknown as ToolInternals).expanded) {
-            return originalToolRender.call(this, width);
-          }
-          return toolPlaceholderLines(this);
-        } else if (busy) {
-          // Hide every row that renders during the run immediately (no flash).
-          // Finalize later keeps only rows whose tool_execution_start
-          // confirmed this run; legacy rows Pi merely re-rendered are pruned
-          // and restored to their normal rendering.
-          const info = this as unknown as ToolInternals;
-          capture("tool", this, `t:${info.toolCallId ?? info.toolName}`);
-          return [];
-        }
+      if (!config.enabled) {
+        return originalToolRender.call(this, width);
       }
+
+      // Always collect during a zen run so toggling hideTools later can
+      // still find the row. Visibility is decided below, not at capture.
+      let owned = ownedByLiveRun(this);
+      if (!owned && busy) {
+        const info = this as unknown as ToolInternals;
+        capture("tool", this, `t:${info.toolCallId ?? info.toolName}`);
+        owned = collector;
+      }
+
+      if (!config.hideTools) {
+        return originalToolRender.call(this, width);
+      }
+
+      if (owned === collector && busy) return [];
+      if (owned) {
+        if (revealed.get(owned) === true || (this as unknown as ToolInternals).expanded) {
+          return originalToolRender.call(this, width);
+        }
+        return toolPlaceholderLines(this);
+      }
+      if (busy) return [];
       return originalToolRender.call(this, width);
     } catch {
       return originalToolRender.call(this, width);

@@ -76,7 +76,7 @@ pi install git:github.com/wutongyuonce/pi-zen-mode
 | `hideInterimText` | 运行时隐藏中间回复;结束后折成一行;`false` 则实时显示 |
 | `toggleKey` / `revealKey` / `pickerKey` | 三个快捷键,任意合法的 pi 键位字符串 |
 
-三个子开关控制**运行时藏什么**。关掉某一档,那一类会立刻走原生 UI;`ctrl+alt+r` 展开时同样走原生渲染。改完 `/reload` 生效。
+zen 开着时三类输出都会被管起来（方便事后改开关）。三个子开关只决定**藏还是显示**，以及底栏统计。关掉某一档走原生 UI；再打开会把已结束轮次里对应的行收成占位（只重绘被管到的那些组件）。`ctrl+alt+r` 展开走原生渲染。改完 `/reload` 生效。
 
 ## 兼容性
 

@@ -75,7 +75,7 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
 | `hideInterimText` | Hide interim replies while running; collapse to a one-liner when done; `false` streams them live |
 | `toggleKey` / `revealKey` / `pickerKey` | The three shortcuts — any valid Pi keybinding string |
 
-The three sub-toggles control **what is hidden while a run streams**. Turn one off and that category uses the native renderer immediately; `ctrl+alt+r` also reveals through the original renderer. `/reload` after changes.
+While zen is on, all three categories are tracked. The sub-toggles only choose **hidden vs visible** (and the footer counts). Turn one off and that category uses the native renderer; turn it back on and already-finished runs collapse those rows to placeholders — only the tracked components are redrawn. `ctrl+alt+r` reveals through the original renderer. `/reload` after changes.
 
 ## Compatibility
 
