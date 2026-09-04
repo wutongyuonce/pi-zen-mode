@@ -44,9 +44,8 @@ Update with `pi update --extensions`.
 `/zen` opens the settings panel:
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_03-19-15.png" alt="zen settings panel" width="660" />
+  <img src="img/PixPin_2026-09-04_16-56-48.png" alt="zen settings panel" width="660" />
 </p>
-
 
 Besides the **focus mode** switch, there are two more:
 

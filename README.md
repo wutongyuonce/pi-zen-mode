@@ -13,8 +13,6 @@
 <p align="center">
   <img src="img/image-20260904031548477.png" alt="zen collapsed run" width="780" />
 </p>
-
-
 而 `Ctrl+Alt+S` 能展开更早的轮次：
 
 <p align="center">
@@ -45,9 +43,10 @@ pi install npm:pi-zen-mode
 `/zen` 打开设置面板：
 
 <p align="center">
-  <img src="img/PixPin_2026-09-04_03-19-15.png" alt="zen settings panel" width="660" />
+  <img src="img/PixPin_2026-09-04_16-56-48.png" alt="zen settings panel" width="660" />
 </p>
-除了 **focus mode 开关**之外，还有两个开关：
+
+除了 **focus mode 开关** 之外，还有两个开关：
 
 * **thinking 开关**，控制 focus mode 生命周期下的每轮对话是否隐藏 thinking 块
 * **tools 开关**，控制 focus mode 生命周期下的每轮对话是否隐藏 tools 块
