@@ -254,6 +254,7 @@ prototype 换成 patched*
   "enabled": false,
   "hideThinking": true,
   "hideTools": true,
+  "locale": "zh",
   "toggleKey": "ctrl+alt+f",
   "revealKey": "ctrl+alt+r",
   "pickerKey": "ctrl+alt+s"
@@ -261,6 +262,7 @@ prototype 换成 patched*
 ```
 
 - 默认总开关是关的；两个 hide 默认开（打开 zen 即藏思考和工具）。
+- `locale`：`zh` \| `en`，只切换占位符、底栏、`ctrl+alt+s` 选择框和 notify。`/zen` 面板不随它改语言（标题/选项已是中英对照，说明下面另有一行英文）。切换后 `refreshCollapsedRuns` 重画本生命周期里已折叠轮的占位。
 - 键位只接受 `/^[a-z+0-9]+$/`，否则回落到上面三个默认。曾用 `ctrl+alt+z`，和 pi-transcribe 冲突，才改成 `ctrl+alt+f`。
 - 加载时显式挑字段，丢弃未知键（含旧的 `hideInterimText`）。
 - 改面板或快捷键会立刻 `saveConfig`。键位在 session 启动时读一次，改 json 里的 `*Key` 要 `/reload`。

@@ -27,7 +27,9 @@
  *   /zen        settings panel (same visual style as /tools)
  *
  * Config keys (zen-mode.json): enabled, hideThinking, hideTools,
- * toggleKey, revealKey, pickerKey.
+ * locale (zh|en), toggleKey, revealKey, pickerKey.
+ * locale only switches placeholders, footers, picker, and notifies — the
+ * /zen panel stays bilingual and does not rebuild itself.
  */
 
 import type { AssistantMessage } from "@earendil-works/pi-ai";
@@ -56,10 +58,13 @@ function configPath(): string {
 }
 const WIDGET_ID = "zen-mode-render-loop";
 
+type Locale = "zh" | "en";
+
 interface ZenConfig {
   enabled: boolean;
   hideThinking: boolean;
   hideTools: boolean;
+  locale: Locale;
   toggleKey?: string;
   revealKey?: string;
   pickerKey?: string;
@@ -69,7 +74,74 @@ const DEFAULT_CONFIG: ZenConfig = {
   enabled: false,
   hideThinking: true,
   hideTools: true,
+  locale: "zh",
 };
+
+function normalizeLocale(value: unknown): Locale {
+  return value === "en" || value === "English" ? "en" : "zh";
+}
+
+const COPY = {
+  zh: {
+    thinkingCollapsed: (runs: number, words: number) =>
+      runs > 1 ? `◈ ${runs} 段思考已折叠 · ${words} 词` : `◈ 思考已折叠 · ${words} 词`,
+    toolsN: (n: number) => `${n} 次工具调用`,
+    thinkingN: (n: number) => `${n} 段思考`,
+    collapsedMark: "已折叠",
+    expandThis: "展开本轮",
+    expandEarlier: "展开更早",
+    toolFailed: "失败",
+    toolOk: (n: number) => `ok · ${n} 行`,
+    toolDone: "完成",
+    noCollapsed: "zen · 暂无已折叠内容",
+    pickerNeedTui: "zen · 展开面板需要 TUI 模式",
+    pickerEmpty: "zen · 暂无已折叠的轮次",
+    pickerTitle: "zen · 展开哪一轮?",
+    pickerHint: (n: number) =>
+      `${n} 轮已折叠 · ↑↓ 选择 · Enter 展开/收起 · Esc 关闭`,
+    expand: "展开",
+    collapse: "收起",
+    runTools: (n: number) => `${n} 工具`,
+    runThinking: (n: number) => `${n} 思考`,
+    runProcess: "过程",
+    timeSec: (s: number) => `${s}s 前`,
+    timeMin: (m: number) => `${m}m 前`,
+    busy: "zen · 这轮还在跑，结束后再改",
+    zenOn: (key: string) => `zen · 已开启 — 运行时按开关隐藏 (${key} 展开本轮)`,
+    zenOff: "zen · 已关闭",
+  },
+  en: {
+    thinkingCollapsed: (runs: number, words: number) =>
+      runs > 1
+        ? `◈ ${runs} thinking blocks collapsed · ${words} words`
+        : `◈ thinking collapsed · ${words} words`,
+    toolsN: (n: number) => `${n} tool call${n === 1 ? "" : "s"}`,
+    thinkingN: (n: number) => `${n} thinking block${n === 1 ? "" : "s"}`,
+    collapsedMark: "collapsed",
+    expandThis: "expand this run",
+    expandEarlier: "earlier runs",
+    toolFailed: "failed",
+    toolOk: (n: number) => `ok · ${n} lines`,
+    toolDone: "done",
+    noCollapsed: "zen · nothing collapsed",
+    pickerNeedTui: "zen · picker needs TUI mode",
+    pickerEmpty: "zen · no collapsed runs",
+    pickerTitle: "zen · which run?",
+    pickerHint: (n: number) =>
+      `${n} collapsed · ↑↓ select · Enter expand/collapse · Esc close`,
+    expand: "expand",
+    collapse: "collapse",
+    runTools: (n: number) => `${n} tools`,
+    runThinking: (n: number) => `${n} thinking`,
+    runProcess: "process",
+    timeSec: (s: number) => `${s}s ago`,
+    timeMin: (m: number) => `${m}m ago`,
+    busy: "zen · still running, change after it finishes",
+    zenOn: (key: string) =>
+      `zen · focus mode on — hide per switches (${key} expand this run)`,
+    zenOff: "zen · focus mode off",
+  },
+} as const;
 
 const DEFAULT_TOGGLE_KEY = "ctrl+alt+f";
 const DEFAULT_REVEAL_KEY = "ctrl+alt+r";
@@ -188,6 +260,7 @@ export default function zenMode(pi: ExtensionAPI) {
           enabled: raw.enabled ?? DEFAULT_CONFIG.enabled,
           hideThinking: raw.hideThinking ?? DEFAULT_CONFIG.hideThinking,
           hideTools: raw.hideTools ?? DEFAULT_CONFIG.hideTools,
+          locale: normalizeLocale(raw.locale),
           toggleKey: raw.toggleKey,
           revealKey: raw.revealKey,
           pickerKey: raw.pickerKey,
@@ -197,6 +270,10 @@ export default function zenMode(pi: ExtensionAPI) {
       // fall back to defaults
     }
     return { ...DEFAULT_CONFIG };
+  }
+
+  function copy() {
+    return COPY[config.locale];
   }
 
   function saveConfig() {
@@ -305,7 +382,7 @@ export default function zenMode(pi: ExtensionAPI) {
       const words = joined.reduce((a, t) => a + t.split(/\s+/).length, 0);
       const runs = joined.length;
       const line = new Text(
-        think(`◈ ${runs > 1 ? `${runs} 段思考` : "思考"}已折叠 · ${words} 词`),
+        think(copy().thinkingCollapsed(runs, words)),
         self.outputPad,
         0,
       );
@@ -361,16 +438,19 @@ export default function zenMode(pi: ExtensionAPI) {
     const comp = col.comps[col.finalTextIndex].component as AssistantMessageComponent;
     const self = assistantInternals(comp);
     const parts: string[] = [];
-    if (counts.tools > 0) parts.push(`${counts.tools} 次工具调用`);
-    if (counts.thinking > 0) parts.push(`${counts.thinking} 段思考`);
+    const c = copy();
+    if (counts.tools > 0) parts.push(c.toolsN(counts.tools));
+    if (counts.thinking > 0) parts.push(c.thinkingN(counts.thinking));
     self.contentContainer.addChild(new Spacer(1));
     const olderHint =
-      collectors.some((c) => c !== col)
-        ? ` · ${pickerKey} 展开更早`
-        : "";
+      collectors.some((x) => x !== col) ? ` · ${pickerKey} ${c.expandEarlier}` : "";
+    const head =
+      config.locale === "en"
+        ? `zen · ${parts.join(" / ")} ${c.collapsedMark}`
+        : `zen · ${parts.join(" / ")}${c.collapsedMark}`;
     self.contentContainer.addChild(
       new Text(
-        dim(`zen · ${parts.join(" / ")}已折叠 — ${revealKey} 展开本轮${olderHint}`),
+        dim(`${head} — ${revealKey} ${c.expandThis}${olderHint}`),
         self.outputPad,
         0,
       ),
@@ -459,7 +539,8 @@ export default function zenMode(pi: ExtensionAPI) {
           0,
         )
       : 0;
-    const status = isError ? "failed" : lines > 0 ? `ok · ${lines} lines` : "done";
+    const c = copy();
+    const status = isError ? c.toolFailed : lines > 0 ? c.toolOk(lines) : c.toolDone;
     return [dim(`${isError ? "⚠" : "⚙"} ${info.toolName} — ${status}`)];
   }
 
@@ -665,7 +746,7 @@ export default function zenMode(pi: ExtensionAPI) {
   function toggleReveal() {
     const col = presentedCollector;
     if (!col || col.comps.length === 0) {
-      activeCtx?.ui.notify("zen · 暂无已折叠内容");
+      activeCtx?.ui.notify(copy().noCollapsed);
       return;
     }
     setRunRevealed(col, !(revealed.get(col) ?? false));
@@ -729,6 +810,12 @@ export default function zenMode(pi: ExtensionAPI) {
         currentValue: config.hideTools ? "on" : "off",
         values: ["on", "off"],
       },
+      {
+        id: "locale",
+        label: "文  占位语言 · placeholders",
+        currentValue: config.locale === "en" ? "English" : "中文",
+        values: ["中文", "English"],
+      },
     ];
   }
 
@@ -742,6 +829,12 @@ export default function zenMode(pi: ExtensionAPI) {
       refreshCollapsedRuns();
     } else if (id === "hideTools") {
       config.hideTools = on;
+      saveConfig();
+      refreshCollapsedRuns();
+    } else if (id === "locale") {
+      const next = normalizeLocale(value);
+      if (config.locale === next) return;
+      config.locale = next;
       saveConfig();
       refreshCollapsedRuns();
     }
@@ -770,6 +863,7 @@ export default function zenMode(pi: ExtensionAPI) {
             return [
               `${mark}  ${theme.fg("accent", theme.bold("zen · Focus Mode"))}`,
               theme.fg("muted", "两个开关控制运行时藏思考 / 工具;文字始终走原生 UI。结束后隐藏项收成占位。"),
+              theme.fg("muted", "Two switches hide thinking / tools at runtime; text always streams. Hidden items become placeholders when the run ends."),
               "",
             ];
           }
@@ -812,34 +906,36 @@ export default function zenMode(pi: ExtensionAPI) {
   /* ---------------- run picker (choose which collapsed run) ---------------- */
 
   function runLabel(col: RunCollector, ordinal: number): string {
+    const c = copy();
     const counts = collapseSummary(col);
     const parts: string[] = [];
-    if (counts.tools > 0) parts.push(`${counts.tools} 工具`);
-    if (counts.thinking > 0) parts.push(`${counts.thinking} 思考`);
-    const detail = parts.length > 0 ? parts.join(" / ") : "过程";
+    if (counts.tools > 0) parts.push(c.runTools(counts.tools));
+    if (counts.thinking > 0) parts.push(c.runThinking(counts.thinking));
+    const detail = parts.length > 0 ? parts.join(" / ") : c.runProcess;
     const secs = Math.max(0, Math.round((Date.now() - col.startedAt) / 1000));
-    const when = secs < 90 ? `${secs}s 前` : `${Math.round(secs / 60)}m 前`;
+    const when = secs < 90 ? c.timeSec(secs) : c.timeMin(Math.round(secs / 60));
     return `#${ordinal} · ${when} · ${detail}`;
   }
 
   async function openRunPicker(ctx: ExtensionContext) {
     if (ctx.mode !== "tui") {
-      ctx.ui.notify("zen · 展开面板需要 TUI 模式", "error");
+      ctx.ui.notify(copy().pickerNeedTui, "error");
       return;
     }
     const total = collectors.length;
     if (total === 0) {
-      ctx.ui.notify("zen · 暂无已折叠的轮次");
+      ctx.ui.notify(copy().pickerEmpty);
       return;
     }
+    const c = copy();
     await ctx.ui.custom((tui, theme, _kb, done) => {
       const container = new Container();
       container.addChild(
         new (class {
           render(_width: number) {
             return [
-              theme.fg("accent", theme.bold("zen · 展开哪一轮?")),
-              theme.fg("muted", `${total} 轮已折叠 · ↑↓ 选择 · Enter 展开/收起 · Esc 关闭`),
+              theme.fg("accent", theme.bold(c.pickerTitle)),
+              theme.fg("muted", c.pickerHint(total)),
               "",
             ];
           }
@@ -849,8 +945,8 @@ export default function zenMode(pi: ExtensionAPI) {
       const items: SettingItem[] = collectors.map((col, index) => ({
         id: `zen-run-${index}`,
         label: runLabel(col, total - index),
-        currentValue: revealed.get(col) ? "展开" : "收起",
-        values: ["收起", "展开"],
+        currentValue: revealed.get(col) ? c.expand : c.collapse,
+        values: [c.collapse, c.expand],
       }));
       const settingsList = new SettingsList(
         items,
@@ -859,7 +955,7 @@ export default function zenMode(pi: ExtensionAPI) {
         (id, newValue) => {
           const index = Number(id.replace("zen-run-", ""));
           const col = collectors[index];
-          if (col) setRunRevealed(col, newValue === "展开");
+          if (col) setRunRevealed(col, newValue === c.expand);
         },
         () => done(undefined),
       );
@@ -972,7 +1068,7 @@ export default function zenMode(pi: ExtensionAPI) {
 
   function rejectIfBusy(ctx: ExtensionContext): boolean {
     if (!busy) return false;
-    ctx.ui.notify("zen · 这轮还在跑，结束后再改");
+    ctx.ui.notify(copy().busy);
     return true;
   }
 
@@ -992,11 +1088,7 @@ export default function zenMode(pi: ExtensionAPI) {
       if (rejectIfBusy(ctx)) return;
       const next = !config.enabled;
       setEnabled(next, ctx);
-      ctx.ui.notify(
-        next
-          ? `zen · focus mode on — 运行时按开关隐藏 (${revealKey} 展开本轮)`
-          : "zen · focus mode off",
-      );
+      ctx.ui.notify(next ? copy().zenOn(revealKey) : copy().zenOff);
     },
   });
 

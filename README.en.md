@@ -76,6 +76,7 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
   "enabled": true,
   "hideThinking": true,
   "hideTools": true,
+  "locale": "zh",
   "toggleKey": "ctrl+alt+f",
   "revealKey": "ctrl+alt+r",
   "pickerKey": "ctrl+alt+s"
@@ -87,6 +88,7 @@ Created on first change at `~/.pi/agent/zen-mode.json` (or under `$PI_CODING_AGE
 | `enabled` | Master switch |
 | `hideThinking` | Hide thinking while running; collapse to a one-line `◈` when done; `false` streams the native thinking UI |
 | `hideTools` | Hide tool calls while running; collapse to a one-line `⚙` when done; `false` streams native tool rows |
+| `locale` | Language for placeholders, footer, and the run picker: `zh` or `en`. The `/zen` panel itself stays bilingual |
 | `toggleKey` / `revealKey` / `pickerKey` | The three shortcuts — any valid Pi keybinding string |
 
 While zen is on, thinking and tools are tracked (so you can flip a switch later). The two sub-toggles only choose **hidden vs visible**, and the footer counts. Text is never hidden — interim chatter and the final answer are the same `text` parts on the wire, so hiding them would flash a few characters then vanish. Turn a switch off and that category uses the native renderer; turn it back on and already-finished runs collapse those rows to placeholders (only the tracked components are redrawn). `ctrl+alt+r` reveals through the original renderer. `/reload` after changes.

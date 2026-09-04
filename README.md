@@ -75,6 +75,7 @@ pi install npm:pi-zen-mode
   "enabled": true,
   "hideThinking": true,
   "hideTools": true,
+  "locale": "zh",
   "toggleKey": "ctrl+alt+f",
   "revealKey": "ctrl+alt+r",
   "pickerKey": "ctrl+alt+s"
@@ -86,6 +87,7 @@ pi install npm:pi-zen-mode
 | `enabled` | 总开关 |
 | `hideThinking` | 运行时隐藏思考块;结束后折成一行 `◈`;`false` 则实时显示原生思考 UI |
 | `hideTools` | 运行时隐藏工具调用;结束后折成一行 `⚙`;`false` 则实时原生渲染 |
+| `locale` | 占位/底栏/选择框语言，`zh` 或 `en`。`/zen` 面板本身不切换，始终中英对照 |
 | `toggleKey` / `revealKey` / `pickerKey` | 三个快捷键,任意合法的 pi 键位字符串 |
 
 zen 开着时思考和工具都会被管起来（方便事后改开关）。两个子开关只决定**藏还是显示**，以及底栏统计。文字不藏——中间那句「我先看看」和最终答案在协议里分不开，硬藏只会闪几个字再消失。关掉某一档走原生 UI；再打开会把已结束轮次里对应的行收成占位（只重绘被管到的那些组件）。`ctrl+alt+r` 展开走原生渲染。改完 `/reload` 生效。
