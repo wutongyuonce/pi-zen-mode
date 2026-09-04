@@ -812,9 +812,9 @@ export default function zenMode(pi: ExtensionAPI) {
       },
       {
         id: "locale",
-        label: "文  占位语言 · placeholders",
-        currentValue: config.locale === "en" ? "English" : "中文",
-        values: ["中文", "English"],
+        label: "Language",
+        currentValue: config.locale === "en" ? "English" : "CN",
+        values: ["English", "CN"],
       },
     ];
   }
