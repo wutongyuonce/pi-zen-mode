@@ -18,6 +18,7 @@
 <p align="center">
   <img src="img/PixPin_2026-09-04_02-44-45.png" alt="zen run picker" width="660" />
 </p>
+
 ## 特性
 
 - **按开关隐藏** — 思考 / 工具各自决定要不要实时显示；文字始终流式出现
